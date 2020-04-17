@@ -47,6 +47,7 @@ RUN set -eux; \
 		postgresql-common \
 		libnss-wrapper \
 		xz-utils \
+		tzdata \
 	; \
 	\
 # reconfigure tzdata for China
