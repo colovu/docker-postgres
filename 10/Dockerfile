@@ -4,7 +4,7 @@ FROM endial/ubuntu:v18.04
 LABEL \
 	"Version"="v10.12" \
 	"Description"="Docker image for PostgreSQL 10.12 based on Ubuntu 18.04." \
-	"Dockerfile"="https://github.com/endial/docker-libs" \
+	"Dockerfile"="https://github.com/endial/docker-postgres" \
 	"Vendor"="Endial Fang (endial@126.com)"
 
 ENV PG_MAJOR 		10
