@@ -1,4 +1,4 @@
-FROM --platform=linux/amd64 endial/ubuntu:v18.04
+FROM endial/ubuntu:v18.04
 # --platform=$BUILDPLATFORM linux/amd64, linux/arm64, or windows/amd64
 
 LABEL \
