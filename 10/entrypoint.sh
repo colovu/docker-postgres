@@ -3,7 +3,22 @@
 
 set -Eeo pipefail
 
-echo "[i] Initial Container"
+LOG_RAW() {
+	local type="$1"; shift
+	printf '%s [%s] Entrypoint: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$type" "$*"
+}
+LOG_I() {
+	LOG_RAW Note "$@"
+}
+LOG_W() {
+	LOG_RAW Warn "$@" >&2
+}
+LOG_E() {
+	LOG_RAW Error "$@" >&2
+	exit 1
+}
+
+LOG_I "Initial container for PostgreSQL"
 
 # allow the container to be started with `--user` or `-u`
 # if [ "$1" = 'app-name' -a "$(id -u)" = '0' ]; then
@@ -48,33 +63,16 @@ _is_sourced() {
 docker_create_db_directories() {
 	local user; user="$(id -u)"
 
-	# default value: /srv/data/postgresql
-	if [ ! -d "$PGDATA" ]; then
-		mkdir -p "$PGDATA"
-		chmod 755 "$PGDATA"
-	fi
+	LOG_I "Check directories used by postgres"
+	mkdir -p "/var/log/postgresql"
+	mkdir -p "/var/run/postgresql"
+	mkdir -p "${PGDATA}"
 
-	if [ ! -d /var/run/postgresql ]; then
-		mkdir -p /var/run/postgresql || :
-		chmod 755 /var/run/postgresql || :
-	fi
+	mkdir -p "/srv/conf/postgresql/initdb.d"
+	[ ! -e /srv/conf/postgresql/postgresql.conf ] && cp -rf /usr/share/postgresql/postgresql.conf.sample /srv/conf/postgresql/postgresql.conf
 
-	if [ ! -d /var/log/postgresql ]; then
-		mkdir -p /var/log/postgresql || :
-		chmod 755 /var/log/postgresql || :
-	fi
-
-	if [ ! -d /srv/conf/postgresql/initdb.d ]; then
-		mkdir -p /srv/conf/postgresql/initdb.d
-		chmod -R 755 /srv/conf/postgresql
-		cp -rf /usr/share/postgresql/postgresql.conf.sample /srv/conf/postgresql/postgresql.conf
-	fi
-
-	if [ ! -d /srv/conf/postgresql-common ]; then
-		mkdir -p /srv/conf/postgresql-common
-		chmod 755 /srv/conf/postgresql-common
-		cp -rf /etc/postgresql-common/createcluster.conf /srv/conf/postgresql-common/createcluster.conf
-	fi
+	mkdir -p "/srv/conf/postgresql-common"
+	[ ! -e /srv/conf/postgresql-common/createcluster.conf ] && cp -rf /etc/postgresql-common/createcluster.conf /srv/conf/postgresql-common/createcluster.conf
 
 	# 创建数据库日志存储目录，修改相应目录的所属用户信息
 	if [ -n "$POSTGRES_INITDB_WALDIR" ]; then
@@ -87,15 +85,19 @@ docker_create_db_directories() {
 
 	# 允许容器使用`--user`参数启动，修改相应目录的所属用户信息
 	if [ "$user" = '0' ]; then
-		find "$PGDATA" \! -user postgres -exec chown postgres '{}' +
+		find "${PGDATA}" \! -user postgres -exec chown postgres '{}' +
 		find /var/run/postgresql \! -user postgres -exec chown postgres '{}' +
 		find /var/log/postgresql \! -user postgres -exec chown postgres '{}' +
 		find /srv/conf/postgresql \! -user postgres -exec chown postgres '{}' +
 		find /srv/conf/postgresql-common \! -user postgres -exec chown postgres '{}' +
+		chmod 0755 /var/log/postgresql /var/run/postgresql /srv/conf/postgresql /srv/conf/postgresql-common
+		chmod 0700 ${PGDATA}
+		# 解决使用gosu后，nginx: [emerg] open() "/dev/stdout" failed (13: Permission denied)
+		chmod 0622 /dev/stdout /dev/stderr
 	fi
 }
 
-# 针对 PGDATA 目录为空时，使用'initdb'初始化数据目录；同时创建 POSTGRES_USER 定义的同名数据库用户
+# 针对 ${PGDATA} 目录为空时，使用'initdb'初始化数据目录；同时创建 POSTGRES_USER 定义的同名数据库用户
 # 用户需要传给`initdb`的参数，可通过环境变量 POSTGRES_INITDB_ARGS 传输，或直接使用命令行参数传输到当前函数
 # `initdb`会自动创建以下数据库："postgres", "template0", "template1" 
 docker_init_database_dir() {
@@ -104,7 +106,7 @@ docker_init_database_dir() {
 		export LD_PRELOAD='/usr/lib/libnss_wrapper.so'
 		export NSS_WRAPPER_PASSWD="$(mktemp)"
 		export NSS_WRAPPER_GROUP="$(mktemp)"
-		echo "postgres:x:$(id -u):$(id -g):PostgreSQL:$PGDATA:/bin/false" > "$NSS_WRAPPER_PASSWD"
+		echo "postgres:x:$(id -u):$(id -g):PostgreSQL:${PGDATA}:/bin/false" > "$NSS_WRAPPER_PASSWD"
 		echo "postgres:x:$(id -g):" > "$NSS_WRAPPER_GROUP"
 	fi
 
@@ -233,7 +235,7 @@ docker_setup_env() {
 
 	declare -g DATABASE_ALREADY_EXISTS
 	# look specifically for PG_VERSION, as it is expected in the DB dir
-	if [ -s "$PGDATA/PG_VERSION" ]; then
+	if [ -s "${PGDATA}/$PG_VERSION" ]; then
 		DATABASE_ALREADY_EXISTS='true'
 	fi
 }
@@ -247,7 +249,7 @@ pg_setup_hba_conf() {
 			echo '# see https://www.postgresql.org/docs/12/auth-trust.html'
 		fi
 		echo "host all all all $POSTGRES_HOST_AUTH_METHOD"
-	} >> "$PGDATA/pg_hba.conf"
+	} >> "${PGDATA}/pg_hba.conf"
 }
 
 # start socket-only postgresql server for setting up or running scripts
@@ -262,7 +264,7 @@ docker_temp_server_start() {
 	set -- "$@" -c listen_addresses='' -p "${PGPORT:-5432}"
 
 	PGUSER="${PGUSER:-$POSTGRES_USER}" \
-	pg_ctl -D "$PGDATA" \
+	pg_ctl -D "${PGDATA}" \
 		-o "$(printf '%q ' "$@")" \
 		-w start
 }
@@ -270,7 +272,7 @@ docker_temp_server_start() {
 # stop postgresql server after done setting up user and running scripts
 docker_temp_server_stop() {
 	PGUSER="${PGUSER:-postgres}" \
-	pg_ctl -D "$PGDATA" -m fast -w stop
+	pg_ctl -D "${PGDATA}" -m fast -w stop
 }
 
 # 检测可能导致postgres执行后直接退出的命令，如"--help"；如果存在，直接返回 0

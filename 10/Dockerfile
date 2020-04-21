@@ -1,25 +1,26 @@
 FROM endial/ubuntu:v18.04
 # --platform=$BUILDPLATFORM linux/amd64, linux/arm64, or windows/amd64
 
-LABEL \
-	"Version"="v10.12" \
-	"Description"="Docker image for PostgreSQL 10.12 based on Ubuntu 18.04." \
-	"Dockerfile"="https://github.com/endial/docker-postgres" \
-	"Vendor"="Endial Fang (endial@126.com)"
-
 ENV PG_MAJOR 		10
 ENV PG_VERSION 		10.12-2.pgdg18.04+1
-ENV PG_KEYS		B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+ENV PG_KEYS			B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
 
 ENV PGDATA /srv/data/postgresql
 ENV PATH $PATH:/usr/lib/postgresql/${PG_MAJOR}/bin
 
+LABEL \
+	"Version"="v${PG_MAJOR}" \
+	"Description"="Docker image for PostgreSQL ${PG_MAJOR} based on Ubuntu 18.04." \
+	"Dockerfile"="https://github.com/endial/docker-postgres" \
+	"Vendor"="Endial Fang (endial@126.com)"
+
 RUN set -eux; \
-# add user after ningx docker
-	groupadd -r -g 502 postgres; \
-	useradd -r -g postgres -d /var/lib/postgresql -s /bin/bash -u 502 postgres; \
-	mkdir -p /var/lib/postgresql; \
-	chown -R postgres:postgres /var/lib/postgresql; \
+# 确保程序使用静默安装，而非交互模式
+	export DEBIAN_FRONTEND=noninteractive; \
+	groupadd -r postgres; \
+	useradd -r -g postgres -s /usr/sbin/nologin -d /var/lib/postgresql postgres; \
+	\
+	mkdir -p /var/lib/postgresql /srv/conf/postgresql ${PGDATA} /var/log/postgresql /var/run/postgresql; \
 	\
 	fetchDeps=" \
 		dirmngr \
@@ -39,9 +40,6 @@ RUN set -eux; \
 	echo "deb-src http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main ${PG_MAJOR}" >> /etc/apt/sources.list; \
 	apt update; \
 	\
-# set noninteractive for install tzdata
-	export DEBIAN_FRONTEND=noninteractive; \
-	\
 	apt install -y --no-install-recommends \
 		postgresql-${PG_MAJOR}=${PG_VERSION} \
 		postgresql-common \
@@ -53,6 +51,10 @@ RUN set -eux; \
 # reconfigure tzdata for China
 	ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
 	dpkg-reconfigure -f noninteractive tzdata; \
+	\
+	chown -Rf postgres:postgres /var/lib/postgresql /srv/conf/postgresql ${PGDATA} /var/log/postgresql /var/run/postgresql; \
+# this 777 will be replaced by 700 or 755 at runtime (allows semi-arbitrary "--user" values)
+	chmod 777 /var/lib/postgresql /srv/conf/postgresql ${PGDATA} /var/log/postgresql /var/run/postgresql; \
 	\
 	apt purge -y --auto-remove ${fetchDeps}; \
 	apt autoclean -y; \

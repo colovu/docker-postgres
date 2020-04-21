@@ -250,7 +250,7 @@ ENV LANG de_DE.utf8
 
 ## 变参 --user 说明
 
-本镜像允许使用变参`--user`指定运行时的用户信息。但需要注意的是，`postgres`可以允许使用任何UID执行（只需要需数据库目录所属账户一致），`initdb`需要确保该UID实际存在（用户需要在`/etc/passwd`文件中存在）：
+本镜像允许使用变参`--user`指定运行时的用户信息。但需要注意的是，`postgres`可以允许使用任何UID执行（只需要与数据库目录所属账户一致），`initdb`需要确保该UID实际存在（指定的用户需要在容器的`/etc/passwd`文件中存在）：
 
 ```shell
 $ docker run -it --rm --user www-data -e POSTGRES_PASSWORD=mysecretpassword endial/postgres-ubuntu:v10.12
