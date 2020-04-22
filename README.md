@@ -6,8 +6,8 @@
 
 ## 基本信息
 
-* 镜像地址：endial/postgres
-* 依赖镜像：endial/ubuntu:v18.04
+* 镜像地址：endial/postgres:10
+  * 依赖镜像：endial/ubuntu:18.04
 
 
 
@@ -29,7 +29,7 @@
 #### 通过默认方式启动
 
 ```shell
-$ docker run --name some-postgres -e POSTGRES_PASSWORD=mysecretpassword -d postgres
+$ docker run --name some-postgres -e POSTGRES_PASSWORD=mysecretpassword -d endial/postgres:10
 ```
 
 - 由容器执行默认的`entrypoint.sh`脚本，并生成默认的用户及数据文件
@@ -41,7 +41,7 @@ $ docker run --name some-postgres -e POSTGRES_PASSWORD=mysecretpassword -d postg
 #### 通过`psql`命令方式启动
 
 ```shell
-$ docker run -it --rm --network some-network postgres psql -h some-postgres -U postgres
+$ docker run -it --rm --network some-network endial/postgres:10 psql -h some-postgres -U postgres
 psql (10.12.0)
 Type "help" for help.
 
@@ -66,7 +66,7 @@ version: '3.1'
 services:
 
   db:
-    image: postgres
+    image: endial/postgres:10
     restart: always
     environment:
       POSTGRES_PASSWORD: example
@@ -153,7 +153,7 @@ $ docker run -d \
     -e POSTGRES_PASSWORD=mysecretpassword \
     -e PGDATA=/var/lib/postgresql/data/pgdata \
     -v /custom/mount:/var/lib/postgresql/data \
-    postgres
+    endial/postgres:10
 ```
 
 该变量并不是为Docker定义的数据卷，而是由`postgres`服务本身使用（参考 [PostgreSQL docs](https://www.postgresql.org/docs/11/app-postgres.html#id-1.9.5.14.7)），entrypoing.sh脚本只是传输该值。
@@ -165,7 +165,7 @@ $ docker run -d \
 作为敏感信息通过环境变量传输的可选替代方案，可以增加`_FILE`在部分环境变量末尾，以使容器的初始化脚本通过加载文件的方式，获取相关变量。例如，可以通过加载文件的方式加载密码：
 
 ```shell
-$ docker run --name some-postgres -e POSTGRES_PASSWORD_FILE=/run/secrets/postgres-passwd -d postgres
+$ docker run --name some-postgres -e POSTGRES_PASSWORD_FILE=/run/secrets/postgres-passwd -d endial/postgres:10
 ```
 
 支持该方式的变量为： `POSTGRES_INITDB_ARGS`, `POSTGRES_PASSWORD`, `POSTGRES_USER`, `POSTGRES_DB`。
@@ -190,19 +190,19 @@ $ docker run --name some-postgres -e POSTGRES_PASSWORD_FILE=/run/secrets/postgre
 
   ```shell
   $ # 获取配置文件模板，存储为当前目录的my-postgres.conf
-  $ docker run -i --rm endial/postgres-ubuntu:v10.12 cat /usr/share/postgresql/postgresql.conf.sample > my-postgres.conf
+  $ docker run -i --rm endial/postgres:10 cat /usr/share/postgresql/postgresql.conf.sample > my-postgres.conf
   
   $ # 个性化修改配置信息，至少增加`listen_addresses='*'`以确保其他容器可以访问
   $ echo "listen_addresses='*'" >> my-postgres.conf
   
   $ # 使用定制后的配置文件启动容器
-  $ docker run -d --name some-postgres -v "$PWD/my-postgres.conf":/etc/postgresql/postgresql.conf -e POSTGRES_PASSWORD=mysecretpassword endial/postgres-ubuntu:v10.12 -c 'config_file=/etc/postgresql/postgresql.conf'
+  $ docker run -d --name some-postgres -v "$PWD/my-postgres.conf":/etc/postgresql/postgresql.conf -e POSTGRES_PASSWORD=mysecretpassword endial/postgres:10 -c 'config_file=/etc/postgresql/postgresql.conf'
   ```
 
 - 在命令行中设置相应参数。entrypoint.sh基本会将所有的启动时传递给Docker的配置参数传递给postgres服务进程。从官方 [docs](https://www.postgresql.org/docs/current/static/app-postgres.html)文档可以看出，所有在 `.conf`文件中的配置项都可以使用`-c`进行设置。
 
   ```shell
-  $ docker run -d --name some-postgres -e POSTGRES_PASSWORD=mysecretpassword endial/postgres-ubuntu:v10.12 -c 'shared_buffers=256MB' -c 'max_connections=200'
+  $ docker run -d --name some-postgres -e POSTGRES_PASSWORD=mysecretpassword endial/postgres:10 -c 'shared_buffers=256MB' -c 'max_connections=200'
   ```
 
 > 注意：配置文件至少修改`listen_addresses='*'`以确保其他容器可以访问
@@ -217,7 +217,7 @@ $ docker run --name some-postgres -e POSTGRES_PASSWORD_FILE=/run/secrets/postgre
 导出模板文件：
 
 ```shell
-docker run -i --rm endial/postgres-ubuntu:v10.12 cat /usr/share/postgresql/postgresql.conf.sample > my-postgres.conf
+docker run -i --rm endial/postgres:10 cat /usr/share/postgresql/postgresql.conf.sample > my-postgres.conf
 ```
 
 - 使用的镜像：endial/postgres-ubuntu:v10.12
@@ -231,7 +231,7 @@ docker run -i --rm endial/postgres-ubuntu:v10.12 cat /usr/share/postgresql/postg
 PostgreSQL镜像使用的Ubuntu基础镜像默认的Locale配置为`en_US.UTF-8`，可以使用一个简单的 Dockerfile来设置为不同的Locale。比如设置为 `de_DE.utf8`:
 
 ```dockerfile
-FROM endial/postgres-ubuntu:v10.12
+FROM endial/postgres:10
 RUN localedef -i de_DE -c -f UTF-8 -A /usr/share/locale/locale.alias de_DE.UTF-8
 ENV LANG de_DE.utf8
 ```
@@ -253,11 +253,11 @@ ENV LANG de_DE.utf8
 本镜像允许使用变参`--user`指定运行时的用户信息。但需要注意的是，`postgres`可以允许使用任何UID执行（只需要与数据库目录所属账户一致），`initdb`需要确保该UID实际存在（指定的用户需要在容器的`/etc/passwd`文件中存在）：
 
 ```shell
-$ docker run -it --rm --user www-data -e POSTGRES_PASSWORD=mysecretpassword endial/postgres-ubuntu:v10.12
+$ docker run -it --rm --user www-data -e POSTGRES_PASSWORD=mysecretpassword endial/postgres:10
 The files belonging to this database system will be owned by user "www-data".
 ...
 
-$ docker run -it --rm --user 1000:1000 -e POSTGRES_PASSWORD=mysecretpassword endial/postgres-ubuntu:v10.12
+$ docker run -it --rm --user 1000:1000 -e POSTGRES_PASSWORD=mysecretpassword endial/postgres:10
 initdb: could not look up effective user ID 1000: user does not exist
 ```
 
@@ -268,7 +268,7 @@ initdb: could not look up effective user ID 1000: user does not exist
 2. 如果宿主系统存在相应的用户，可以使用只读绑定将`/etc/passwd`文件映射为容器内对应文件：
 
    ```shell
-   $ docker run -it --rm --user "$(id -u):$(id -g)" -v /etc/passwd:/etc/passwd:ro -e POSTGRES_PASSWORD=mysecretpassword endial/postgres-ubuntu:v10.12
+   $ docker run -it --rm --user "$(id -u):$(id -g)" -v /etc/passwd:/etc/passwd:ro -e POSTGRES_PASSWORD=mysecretpassword endial/postgres:10
    The files belonging to this database system will be owned by user "jsmith".
    ...
    ```
@@ -277,14 +277,14 @@ initdb: could not look up effective user ID 1000: user does not exist
 
    ```shell
    $ docker volume create pgdata
-   $ docker run -it --rm -v pgdata:/var/lib/postgresql/data -e POSTGRES_PASSWORD=mysecretpassword endial/postgres-ubuntu:v10.12
+   $ docker run -it --rm -v pgdata:/var/lib/postgresql/data -e POSTGRES_PASSWORD=mysecretpassword endial/postgres:10
    The files belonging to this database system will be owned by user "postgres".
    ...
    ( once it's finished initializing successfully and is waiting for connections, stop it )
    
-   $ docker run -it --rm -v pgdata:/var/lib/postgresql/data endial/postgres-ubuntu:v10.12 bash chown -R 1000:1000 /var/lib/postgresql/data
+   $ docker run -it --rm -v pgdata:/var/lib/postgresql/data endial/postgres:10 bash chown -R 1000:1000 /var/lib/postgresql/data
    
-   $ docker run -it --rm --user 1000:1000 -v pgdata:/var/lib/postgresql/data endial/postgres-ubuntu:v10.12
+   $ docker run -it --rm --user 1000:1000 -v pgdata:/var/lib/postgresql/data endial/postgres:10
    LOG:  database system was shut down at 2017-01-20 00:03:23 UTC
    LOG:  MultiXact member wraparound protections are now enabled
    LOG:  autovacuum launcher started
