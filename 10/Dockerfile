@@ -2,7 +2,7 @@ FROM endial/ubuntu:18.04
 
 ENV PG_MAJOR=10 \
 	PG_VERSION="10.12-2.pgdg18.04+1" \
-	PG_KEYS=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8 \
+	GPG_KEY='B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8' \
 	PGDATA=/srv/data/postgresql \
 	PATH=$PATH:/usr/lib/postgresql/10/bin
 
@@ -28,8 +28,11 @@ RUN set -eux; \
 	apt install -y --no-install-recommends ${fetchDeps}; \
 	\
 	export GNUPGHOME="$(mktemp -d)"; \
-	gpg --batch --keyserver ha.pool.sks-keyservers.net --recv-keys "${PG_KEYS}"; \
-	gpg --batch --export "${PG_KEYS}" > /etc/apt/trusted.gpg.d/postgres.gpg; \
+	gpg --batch --keyserver ha.pool.sks-keyservers.net --recv-keys "${GPG_KEY}"|| \
+	gpg --batch --keyserver pgp.mit.edu --recv-keys "$GPG_KEY" || \
+	gpg --batch --keyserver keys.gnupg.net --recv-keys "$GPG_KEY" || \
+    gpg --batch --keyserver keyserver.pgp.com --recv-keys "$GPG_KEY"; \
+	gpg --batch --export "${GPG_KEY}" > /etc/apt/trusted.gpg.d/postgres.gpg; \
 	command -v gpgconf > /dev/null && gpgconf --kill all; \
 	rm -rf "$GNUPGHOME"; \
 	apt-key list; \
