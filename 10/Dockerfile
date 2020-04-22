@@ -1,10 +1,10 @@
 FROM endial/ubuntu:18.04
 
-ENV PG_MAJOR 		10 \
-	PG_VERSION 		10.12-2.pgdg18.04+1 \
-	PG_KEYS			B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8 \
-	PGDATA 			/srv/data/postgresql \
-	PATH 			$PATH:/usr/lib/postgresql/${PG_MAJOR}/bin
+ENV PG_MAJOR=10 \
+	PG_VERSION="10.12-2.pgdg18.04+1" \
+	PG_KEYS=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8 \
+	PGDATA=/srv/data/postgresql \
+	PATH=$PATH:/usr/lib/postgresql/${PG_MAJOR}/bin
 
 LABEL \
 	"Version"="v${PG_MAJOR}" \
