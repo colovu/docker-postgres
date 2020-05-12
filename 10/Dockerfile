@@ -1,4 +1,4 @@
-FROM endial/ubuntu:18.04
+FROM colovu/ubuntu:18.04
 
 ENV PG_MAJOR=10 \
 	PG_VERSION="10.12-2.pgdg18.04+1" \
@@ -9,7 +9,7 @@ ENV PG_MAJOR=10 \
 LABEL \
 	"Version"="v${PG_MAJOR}" \
 	"Description"="Docker image for PostgreSQL ${PG_MAJOR} based on Ubuntu 18.04." \
-	"Dockerfile"="https://github.com/endial/docker-postgres" \
+	"Dockerfile"="https://github.com/colovu/docker-postgres" \
 	"Vendor"="Endial Fang (endial@126.com)"
 
 RUN set -eux; \
