@@ -1,7 +1,7 @@
 FROM colovu/ubuntu:18.04
 
 ENV PG_MAJOR=10 \
-	PG_VERSION="10.12-2.pgdg18.04+1" \
+	PG_VERSION="10.12*" \
 	GPG_KEY='B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8' \
 	PGDATA=/srv/data/postgresql \
 	PATH=$PATH:/usr/lib/postgresql/10/bin
