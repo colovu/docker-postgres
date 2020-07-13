@@ -1,11 +1,12 @@
 #!/bin/bash
+# Ver: 1.0 by Endial Fang (endial@126.com)
 #
 # 网络管理函数库
 
 # shellcheck disable=SC1091
 
 # 加载依赖项
-. /usr/local/scripts/liblog.sh
+. /usr/local/scripts/liblog.sh          # 日志输出函数库
 
 # 函数列表
 

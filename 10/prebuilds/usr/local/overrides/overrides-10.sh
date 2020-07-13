@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-POSTGRESQL_CONF="${APP_DEF_DIR}/${PG_MAJOR}/main/postgresql.conf"
+POSTGRESQL_CONF="${APP_DEF_DIR}/${APP_VERSION}/main/postgresql.conf"
 
 # 在安装完应用后，使用该脚本修改默认配置文件中部分配置项
 # 如果相应的配置项已经定义整体环境变量，则不需要在这里修改
@@ -10,9 +10,9 @@ echo "Process overrides for default configs..."
 # 设置默认监听地址为 localhost ，防止初始化操作期间外部链接，在容器初始化完成后修改为监听所有地址
 sed -i -E "s/^#listen_addresses .*/listen_addresses = \'localhost\'/g" ${POSTGRESQL_CONF}
 
-sed -i -E "s/^data_directory .*/data_directory = \'\/srv\/data\/postgresql\/${PG_MAJOR}\'/g" ${POSTGRESQL_CONF}
-sed -i -E "s/^hba_file .*/hba_file = \'\/srv\/conf\/postgresql\/${PG_MAJOR}\/main\/pg_hba.conf\'/g" ${POSTGRESQL_CONF}
-sed -i -E "s/^ident_file .*/ident_file = \'\/srv\/conf\/postgresql\/${PG_MAJOR}\/main\/pg_ident.conf\'/g" ${POSTGRESQL_CONF}
+sed -i -E "s/^data_directory .*/data_directory = \'\/srv\/data\/postgresql\/${APP_VERSION}\'/g" ${POSTGRESQL_CONF}
+sed -i -E "s/^hba_file .*/hba_file = \'\/srv\/conf\/postgresql\/${APP_VERSION}\/main\/pg_hba.conf\'/g" ${POSTGRESQL_CONF}
+sed -i -E "s/^ident_file .*/ident_file = \'\/srv\/conf\/postgresql\/${APP_VERSION}\/main\/pg_ident.conf\'/g" ${POSTGRESQL_CONF}
 sed -i -E "s/^#external_pid_file .*/external_pid_file = \'\/var\/run\/postgresql\/postgresql.pid\'/g" ${POSTGRESQL_CONF}
 sed -i -E "s/^max_connections .*/max_connections = 2000/g" ${POSTGRESQL_CONF}
 sed -i -E "s/^#password_encryption .*/password_encryption = md5/g" ${POSTGRESQL_CONF}

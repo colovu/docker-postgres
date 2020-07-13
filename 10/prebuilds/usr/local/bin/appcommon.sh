@@ -1,13 +1,14 @@
 #!/bin/bash
-#
+# Ver: 1.0 by Endial Fang (endial@126.com)
+# 
 # 应用通用业务处理函数
 
 # 加载依赖脚本
-. /usr/local/scripts/liblog.sh
+#. /usr/local/scripts/liblog.sh          # 日志输出函数库
+. /usr/local/scripts/libcommon.sh       # 通用函数库
 . /usr/local/scripts/libfile.sh
 . /usr/local/scripts/libfs.sh
 . /usr/local/scripts/libos.sh
-. /usr/local/scripts/libcommon.sh
 . /usr/local/scripts/libservice.sh
 . /usr/local/scripts/libvalidations.sh
 
@@ -26,41 +27,37 @@ postgresql_enable_nss_wrapper() {
     fi
 }
 
-# 加载应用使用的环境变量初始值，该函数在相关脚本中以eval方式调用
+# 加载应用使用的环境变量初始值，该函数在相关脚本中以 eval 方式调用
 # 全局变量:
 #   ENV_* : 容器使用的全局变量
-#   PG_* : 应用配置文件使用的全局变量，变量名根据配置项定义
+#   APP_* : 在镜像创建时定义的全局变量
+#   *_* : 应用配置文件使用的全局变量，变量名根据配置项定义
 # 返回值:
 #   可以被 'eval' 使用的序列化输出
 docker_app_env() {
-    # 以下变量已经在创建镜像时定义，可直接使用
-    # APP_NAME、APP_EXEC、APP_USER、APP_GROUP、APP_VERSION
-    # APP_BASE_DIR、APP_DEF_DIR、APP_CONF_DIR、APP_CERT_DIR、APP_DATA_DIR、APP_DATA_LOG_DIR、APP_CACHE_DIR、APP_RUN_DIR、APP_LOG_DIR
     cat <<"EOF"
-# Debug log message
+# Common Settings
 export ENV_DEBUG=${ENV_DEBUG:-false}
+export ALLOW_EMPTY_PASSWORD="${ALLOW_EMPTY_PASSWORD:-no}"
 
 # Paths
-export PG_BASE_DIR="${PG_BASE_DIR:-${APP_BASE_DIR}}"
-export PG_DATA_DIR="${PG_DATA_DIR:-${APP_DATA_DIR}/${PG_MAJOR}}"
-export PG_DATALOG_DIR="${PG_DATALOG_DIR:-${APP_DATA_LOG_DIR}}"
-export PG_CONF_DIR="${PG_CONF_DIR:-${APP_CONF_DIR}}"
-export PG_LOG_DIR="${PG_LOG_DIR:-${APP_LOG_DIR}}"
-export PG_BIN_DIR="${PG_BIN_DIR:-${PG_BASE_DIR}/bin}"
-export PG_CONF_FILE="${PG_CONF_DIR}/${PG_MAJOR}/main/postgresql.conf"
-export PG_HBA_FILE="${PG_CONF_DIR}/${PG_MAJOR}/main/pg_hba.conf"
-export PG_IDENT_FILE="${PG_CONF_DIR}/${PG_MAJOR}/main/pg_ident.conf"
+export APP_DATA_LOG_DIR="${PG_INITDB_WAL_DIR:-${APP_DATA_LOG_DIR}}"
+export PG_DATA_DIR="${PG_DATA_DIR:-${APP_DATA_DIR}/${APP_VERSION}}"
+export PGDATA="${PG_DATA_DIR}"
+
+export PG_CONF_FILE="${APP_CONF_DIR}/${APP_VERSION}/main/postgresql.conf"
+export PG_HBA_FILE="${APP_CONF_DIR}/${APP_VERSION}/main/pg_hba.conf"
+export PG_IDENT_FILE="${APP_CONF_DIR}/${APP_VERSION}/main/pg_ident.conf"
 export PG_RECOVERY_FILE="${PG_DATA_DIR}/recovery.conf"
 export PG_PID_FILE="${APP_RUN_DIR}/postgresql.pid"
-export PG_LOG_FILE="${PG_LOG_DIR}/postgresql.log"
-
+export PG_LOG_FILE="${APP_LOG_DIR}/postgresql.log"
 
 # Users
-export PG_DAEMON_USER="${PG_DAEMON_USER:-${APP_USER}}"
-export PG_DAEMON_GROUP="${PG_DAEMON_GROUP:-${APP_GROUP}}"
+export APP_USER="${PG_DAEMON_USER:-${APP_USER}}"
+export APP_GROUP="${PG_DAEMON_GROUP:-${APP_GROUP}}"
 
 # Cluster configuration
-export PG_CLUSTER_APP_NAME=${PG_CLUSTER_APP_NAME:-walreceiver}
+export PG_CLUSTER_APP_NAME=${PG_CLUSTER_APP_NAME:-cvreceiver}
 export PG_REPLICATION_MODE="${PG_REPLICATION_MODE:-master}"
 
 export PG_MASTER_HOST="${PG_MASTER_HOST:-}"
@@ -75,7 +72,6 @@ export PG_FSYNC="${PG_FSYNC:-on}"
 # PostgreSQL settings
 export PG_INIT_MAX_TIMEOUT=${PG_INIT_MAX_TIMEOUT:-60}
 export PG_INITDB_ARGS="${PG_INITDB_ARGS:-}"
-export PG_INITDB_WAL_DIR="${PG_INITDB_WAL_DIR:-${PG_DATALOG_DIR}}"
 export PG_PORT_NUMBER="${PG_PORT_NUMBER:-5432}"
 
 # PostgreSQL TLS Settings
@@ -96,7 +92,6 @@ export PG_LDAP_SEARCH_ATTR="${PG_LDAP_SEARCH_ATTR:-}"
 export PG_LDAP_SEARCH_FILTER="${PG_LDAP_SEARCH_FILTER:-}"
 
 # Authentication
-export PG_ALLOW_EMPTY_PASSWORD="${PG_ALLOW_EMPTY_PASSWORD:-no}"
 export PG_USERNAME="${PG_USERNAME:-postgres}"
 export PG_PASSWORD="${PG_PASSWORD:-}"
 export PG_DATABASE="${PG_DATABASE:-postgres}"
@@ -105,6 +100,7 @@ export PG_INITSCRIPTS_USERNAME="${PG_INITSCRIPTS_USERNAME:-${PG_USERNAME}}"
 export PG_INITSCRIPTS_PASSWORD="${PG_INITSCRIPTS_PASSWORD:-${PG_PASSWORD}}"
 EOF
 
+    # 利用 *_FILE 设置密码，不在配置命令中设置密码，增强安全性
     if [[ -f "${PG_POSTGRES_PASSWORD_FILE:-}" ]]; then
         cat <<"EOF"
 export PG_POSTGRES_PASSWORD="$(< "${PG_POSTGRES_PASSWORD_FILE}")"
@@ -177,7 +173,7 @@ postgresql_conf_set() {
 #   $1 - 变量
 #   $2 - 值（列表）
 postgresql_hba_set() {
-    replace_in_file "${PG_HBA_FILE}" "$1" "$2" false
+    replace_in_file "${PG_HBA_FILE}" "${1}" "${2}" false
 }
 
 # 更新 pg_ident.conf 配置文件中指定变量值
@@ -200,22 +196,6 @@ postgresql_recover_set() {
     postgresql_common_conf_set "${PG_RECOVERY_FILE}" "$@"
 }
 
-# 修改 PostgreSQL 应用指定配置文件的配置项
-# 全局变量:
-#   PG_*
-# 参数:
-#   $1 - 配置项
-#   $2 - 值
-#   $3 - 配置文件 (默认值: $PG_CONF_FILE)
-postgresql_set_property() {
-    local -r property="${1:?missing property}"
-    local -r value="${2:?missing value}"
-    local -r conf_file="${3:?missing config-file}"
-    local psql_conf
-
-    replace_in_file "$conf_file" "^#*\s*${property}\s*=.*" "${property} = '${value}'" false
-}
-
 # 检测用户参数信息是否满足条件; 针对部分权限过于开放情况，打印提示信息
 # 全局变量：
 #   PG_*
@@ -230,12 +210,12 @@ app_verify_minimum_env() {
     }
 
     empty_password_enabled_warn() {
-        LOG_W "You set the environment variable PG_ALLOW_EMPTY_PASSWORD=${PG_ALLOW_EMPTY_PASSWORD}. For safety reasons, do not use this flag in a production environment."
+        LOG_W "You set the environment variable ALLOW_EMPTY_PASSWORD=${ALLOW_EMPTY_PASSWORD}. For safety reasons, do not use this flag in a production environment."
     }
     empty_password_error() {
-        print_validation_error "The $1 environment variable is empty or not set. Set the environment variable PG_ALLOW_EMPTY_PASSWORD=yes to allow the container to be started with blank passwords. This is recommended only for development."
+        print_validation_error "The $1 environment variable is empty or not set. Set the environment variable ALLOW_EMPTY_PASSWORD=yes to allow the container to be started with blank passwords. This is recommended only for development."
     }
-    if is_boolean_yes "$PG_ALLOW_EMPTY_PASSWORD"; then
+    if is_boolean_yes "$ALLOW_EMPTY_PASSWORD"; then
         empty_password_enabled_warn
     else
         if [[ -z "$PG_PASSWORD" ]]; then
@@ -272,7 +252,7 @@ app_verify_minimum_env() {
             empty_password_error "PG_REPLICATION_PASSWORD"
         fi
     else
-        if is_boolean_yes "$PG_ALLOW_EMPTY_PASSWORD"; then
+        if is_boolean_yes "$ALLOW_EMPTY_PASSWORD"; then
             empty_password_enabled_warn
         else
             if [[ -z "$PG_PASSWORD" ]]; then
@@ -354,17 +334,18 @@ host     all             all             ::/0                    trust
 EOF
 }
 
-# 更改默认监听地址为 "*"，以对容器外提供服务；默认配置文件应当为仅监听 localhost(127.0.0.1)
-postgresql_enable_remote_connections() {
+# 更改默认监听地址为 "*" 或 "0.0.0.0"，以对容器外提供服务；默认配置文件应当为仅监听 localhost(127.0.0.1)
+app_enable_remote_connections() {
+    LOG_D "Modify default config to enable all IP access"
     postgresql_conf_set "listen_addresses" "*"
 }
 
-# 以后台方式启动Zookeeper服务，并等待启动就绪
+# 以后台方式启动应用服务，并等待启动就绪
 # 全局变量:
 #   PG_*
 #   ENV_DEBUG
-postgresql_start_server_bg() {
-    is_postgresql_running && return
+app_start_server_bg() {
+    is_app_server_running && return
 
     # -w wait until operation completes (default)
     # -W don't wait until operation completes
@@ -372,10 +353,10 @@ postgresql_start_server_bg() {
     # -l write (or append) server log to FILENAME
     # -o command line options to pass to postgres or initdb
     local -r pg_ctl_flags=("-W" "-D" "$PG_DATA_DIR" "-l" "$PG_LOG_FILE" "-o" "--config-file=$PG_CONF_FILE --external_pid_file=$PG_PID_FILE --hba_file=$PG_HBA_FILE")
-    LOG_I "Starting PostgreSQL in background..."
+    LOG_I "Starting ${APP_NAME} in background..."
     local pg_ctl_cmd=()
     if _is_run_as_root; then
-        pg_ctl_cmd+=("gosu" "$PG_DAEMON_USER")
+        pg_ctl_cmd+=("gosu" "$APP_USER")
     fi
     pg_ctl_cmd+=(pg_ctl)
     if is_boolean_yes "${ENV_DEBUG}"; then
@@ -384,40 +365,47 @@ postgresql_start_server_bg() {
         "${pg_ctl_cmd[@]}" "start" "${pg_ctl_flags[@]}" >/dev/null 2>&1
     fi
 
-    local -r pg_isready_args=("-h" "localhost" "-p" "${PG_PORT_NUMBER}" "-U" "postgres")
+    local -r check_args=("-h" "localhost" "-p" "${PG_PORT_NUMBER}" "-U" "postgres")
+    local check_cmd=()
+    if _is_run_as_root; then
+        check_cmd=("gosu" "$APP_USER")
+    fi
+    check_cmd+=(pg_isready)
     local counter=$PG_INIT_MAX_TIMEOUT
-    LOG_I "Starting check PostgreSQL ready status..."
-    while ! pg_isready "${pg_isready_args[@]}" >/dev/null 2>&1; do
+    LOG_I "Checking ${APP_NAME} ready status..."
+    while ! PGPASSWORD=$PG_REPLICATION_PASSWORD "${check_cmd[@]}" "${check_args[@]}" >/dev/null 2>&1; do
         sleep 1
-        counter=$((counter - 1 ))
+        counter=$(( counter - 1 ))
         if (( counter <= 0 )); then
             LOG_E "PostgreSQL is not ready after $PG_INIT_MAX_TIMEOUT seconds"
             exit 1
         fi
     done
-    LOG_D "PostgreSQL is ready for service..."
+    LOG_D "${APP_NAME} is ready for service..."
 }
 
 # 停止 PostgreSQL 后台服务
 # 全局变量:
 #   PG_PID_FILE
-postgresql_stop_server() {
-    LOG_I "Stopping PostgreSQL..."
+app_stop_server() {
+    LOG_I "Stopping ${APP_NAME}..."
     stop_service_using_pid "$PG_PID_FILE"
 }
 
-# 检测 PostgreSQL 后台服务是否在运行中
+# 检测应用服务是否在后台运行中
 # 全局变量:
 #   PG_PID_FILE
 # 返回值:
 #   布尔值
-is_postgresql_running() {
+is_app_server_running() {
     local pid
     pid="$(get_pid_from_file "$PG_PID_FILE")"
 
     if [[ -z "$pid" ]]; then
+        LOG_D "${APP_NAME} is Stopped..."
         false
     else
+        LOG_D "${APP_NAME} is Running..."
         is_service_running "$pid"
     fi
 }
@@ -453,10 +441,18 @@ postgresql_execute() {
     fi
 }
 
-# 在重新启动容器时，删除标志文件及 postmaster PID 文件 (容器重新启动)
+# 清理初始化应用时生成的临时文件
+app_clean_tmp_file() {
+    LOG_D "Clean ${APP_NAME} tmp files..."
+
+	rm -rf "${PG_LOG_FILE}"
+}
+
+# 在重新启动容器时，删除标志文件及必须删除的临时文件 (容器重新启动)
 # 全局变量:
+#   APP_*
 #   PG_*
-postgresql_clean_from_restart() {
+app_clean_from_restart() {
     local -r -a files=(
         "$PG_DATA_DIR"/postmaster.pid
         "$PG_DATA_DIR"/standby.signal
@@ -513,14 +509,14 @@ postgresql_default_hba_config() {
 #   PG_*
 postgresql_configure_recovery() {
     LOG_I "Setting up streaming replication slave..."
-    if (( PG_MAJOR >= 12 )); then
+    if (( APP_VERSION >= 12 )); then
         # 版本为12以上时， Slave 节点配置保存在 postgresql.conf 文件中
         postgresql_conf_set "primary_conninfo" "host=${PG_MASTER_HOST} port=${PG_MASTER_PORT_NUMBER} user=${PG_REPLICATION_USER} password=${PG_REPLICATION_PASSWORD} application_name=${PG_CLUSTER_APP_NAME}"
         postgresql_conf_set "promote_trigger_file" "/tmp/postgresql.trigger.${PG_MASTER_PORT_NUMBER}"
         touch "$PG_DATA_DIR"/standby.signal
     else
         # 版本低于12时， Slave 节点配置保存在 recover.conf 文件中
-        cp -f "/usr/share/postgresql/${PG_MAJOR}/recovery.conf.sample" "$PG_RECOVERY_FILE"
+        cp -f "/usr/share/postgresql/${APP_VERSION}/recovery.conf.sample" "$PG_RECOVERY_FILE"
         chmod 600 "$PG_RECOVERY_FILE"
         postgresql_recover_set "standby_mode" "on"
         postgresql_recover_set "primary_conninfo" "host=${PG_MASTER_HOST} port=${PG_MASTER_PORT_NUMBER} user=${PG_REPLICATION_USER} password=${PG_REPLICATION_PASSWORD} application_name=${PG_CLUSTER_APP_NAME}"
@@ -568,13 +564,13 @@ postgresql_create_custom_database() {
 }
 
 # 应用默认初始化操作
-# 执行完毕后，会在 ${APP_DATA_DIR} 目录中生成 .app_init_flag 及 .data_init_flag 文件
+# 执行完毕后，生成文件 ${APP_CONF_DIR}/.app_init_flag 及 ${APP_DATA_DIR}/.data_init_flag 文件
 docker_app_init() {
-    postgresql_clean_from_restart
+	app_clean_from_restart
     LOG_D "Check init status of ${APP_NAME}..."
 
     # 检测配置文件是否存在
-    if [[ ! -f "${APP_DATA_DIR}/.app_init_flag" ]]; then
+    if [[ ! -f "${APP_CONF_DIR}/.app_init_flag" ]]; then
         LOG_I "No injected configuration file found, creating default config files..."
         postgresql_default_postgresql_config
         postgresql_default_hba_config
@@ -585,16 +581,17 @@ docker_app_init() {
             postgresql_configure_recovery
         fi
 
-        echo "$(date '+%Y-%m-%d %H:%M:%S') : Init success." >> ${APP_DATA_DIR}/.app_init_flag
+        touch ${APP_CONF_DIR}/.app_init_flag
+        echo "$(date '+%Y-%m-%d %H:%M:%S') : Init success." >> ${APP_CONF_DIR}/.app_init_flag
     else
         LOG_I "User injected custom configuration detected!"
     fi
 
     if [[ ! -f "${APP_DATA_DIR}/.data_init_flag" ]]; then
-        LOG_I "Deploying PostgreSQL from scratch..."
+        LOG_I "Deploying ${APP_NAME} from scratch..."
         if [[ "$PG_REPLICATION_MODE" = "master" ]]; then
             postgresql_master_init_db
-            postgresql_start_server_bg
+        	app_start_server_bg
             [[ "$PG_DATABASE" != "postgres" ]] && postgresql_create_custom_database
 
             # 为数据库授权；默认用户不为 postgres 时，需要创建管理员账户
@@ -611,19 +608,22 @@ docker_app_init() {
         else
             postgresql_slave_init_db
         fi
-
-        echo "$(date '+%Y-%m-%d %H:%M:%S') : Init success." > ${APP_DATA_DIR}/.data_init_flag
+		
+        touch ${APP_DATA_DIR}/.data_init_flag
+        echo "$(date '+%Y-%m-%d %H:%M:%S') : Init success." >> ${APP_DATA_DIR}/.data_init_flag
     else
-        LOG_I "Deploying PostgreSQL with persisted data..."
+        LOG_I "Deploying ${APP_NAME} with persisted data..."
     fi
 }
 
-# 用户自定义的应用初始化操作，依次执行目录preinitdb.d中的初始化脚本
-# 执行完毕后，会在 ${APP_DATA_DIR} 目录中生成 .custom_preinit_flag 文件
+# 用户自定义的前置初始化操作，依次执行目录 preinitdb.d 中的初始化脚本
+# 执行完毕后，生成文件 ${APP_DATA_DIR}/.custom_preinit_flag
 docker_custom_preinit() {
-    # 检测用户配置文件目录是否存在initdb.d文件夹，如果存在，尝试执行目录中的初始化脚本
+    LOG_D "Check custom pre-init status of ${APP_NAME}..."
+
+    # 检测用户配置文件目录是否存在 preinitdb.d 文件夹，如果存在，尝试执行目录中的初始化脚本
     if [ -d "/srv/conf/${APP_NAME}/preinitdb.d" ]; then
-        # 检测数据存储目录是否存在已初始化标志文件；如果不存在，进行初始化操作
+        # 检测数据存储目录是否存在已初始化标志文件；如果不存在，检索可执行脚本文件并进行初始化操作
         if [ ! -f "${APP_DATA_DIR}/.custom_preinit_flag" ]; then
             LOG_I "Process custom pre-init scripts from /srv/conf/${APP_NAME}/preinitdb.d..."
 
@@ -632,7 +632,8 @@ docker_custom_preinit() {
 
             docker_process_init_files /srv/conf/${APP_NAME}/preinitdb.d/*
 
-            echo "$(date '+%Y-%m-%d %H:%M:%S') : Init success." > ${APP_DATA_DIR}/.custom_preinit_flag
+            touch ${APP_DATA_DIR}/.custom_preinit_flag
+            echo "$(date '+%Y-%m-%d %H:%M:%S') : Init success." >> ${APP_DATA_DIR}/.custom_preinit_flag
             LOG_I "Custom preinit for ${APP_NAME} complete."
         else
             LOG_I "Custom preinit for ${APP_NAME} already done before, skipping initialization."
@@ -641,16 +642,21 @@ docker_custom_preinit() {
 }
 
 # 用户自定义的应用初始化操作，依次执行目录initdb.d中的初始化脚本
-# 执行完毕后，会在 ${APP_DATA_DIR} 目录中生成 .custom_init_flag 文件
+# 执行完毕后，生成文件 ${APP_DATA_DIR}/.custom_init_flag
 docker_custom_init() {
-    # 检测用户配置文件目录是否存在initdb.d文件夹，如果存在，尝试执行目录中的初始化脚本
+    LOG_D "Check custom init status of ${APP_NAME}..."
+
+    # 检测用户配置文件目录是否存在 initdb.d 文件夹，如果存在，尝试执行目录中的初始化脚本
     if [ -d "/srv/conf/${APP_NAME}/initdb.d" ]; then
-    	# 检测数据存储目录是否存在已初始化标志文件；如果不存在，进行初始化操作
-    	if [[ -n $(find "/srv/conf/${APP_NAME}/initdb.d/" -type f -regex ".*\.\(sh\|sql\|sql.gz\)") ]] && [[ ! -f "${APP_DATA_DIR}/.custom_init_flag" ]]; then
+    	# 检测数据存储目录是否存在已初始化标志文件；如果不存在，检索可执行脚本文件并进行初始化操作
+    	if [[ -n $(find "/srv/conf/${APP_NAME}/initdb.d/" -type f -regex ".*\.\(sh\|sql\|sql.gz\)") ]] && \
+            [[ ! -f "${APP_DATA_DIR}/.custom_init_flag" ]]; then
             LOG_I "Process custom init scripts from /srv/conf/${APP_NAME}/initdb.d..."
 
-            postgresql_start_server_bg
-            find "/srv/conf/${APP_NAME}/initdb.d/" -type f -regex ".*\.\(sh\|sql\|sql.gz\)" | sort | while read -r f; do
+            app_start_server_bg
+
+            # 检索所有可执行脚本，排序后执行
+    		find "/srv/conf/${APP_NAME}/initdb.d/" -type f -regex ".*\.\(sh\|sql\|sql.gz\)" | sort | while read -r f; do
                 case "$f" in
                     *.sh)
                         if [[ -x "$f" ]]; then
@@ -665,21 +671,22 @@ docker_custom_init() {
                 esac
             done
 
-    		echo "$(date '+%Y-%m-%d %H:%M:%S') : Init success." > ${APP_DATA_DIR}/.custom_init_flag
+            touch ${APP_DATA_DIR}/.custom_init_flag
+    		echo "$(date '+%Y-%m-%d %H:%M:%S') : Init success." >> ${APP_DATA_DIR}/.custom_init_flag
     		LOG_I "Custom init for ${APP_NAME} complete."
     	else
     		LOG_I "Custom init for ${APP_NAME} already done before, skipping initialization."
     	fi
     fi
 
-    # 停止初始化启动的 PostgreSQL 后台服务
-    postgresql_stop_server
+    # 停止初始化时启动的后台服务
+	is_app_server_running && app_stop_server
 
-    # 删除第一次运行生成的日志文件
-    rm -rf "$PG_LOG_FILE"
+    # 删除第一次运行生成的临时文件
+    app_clean_tmp_file
 
-    # 绑定所有 IP ，启用远程访问
-    postgresql_enable_remote_connections
+	# 绑定所有 IP ，启用远程访问
+    app_enable_remote_connections
 }
 
 # 初始化 Master 节点数据库
@@ -695,11 +702,11 @@ postgresql_master_init_db() {
         initdb_args+=("${envExtraFlags[@]}")
     fi
     #initdb+=("-o" "--config-file=$PG_CONF_FILE --external_pid_file=$PG_PID_FILE --hba_file=$PG_HBA_FILE")
-    initdb_args+=("--waldir=$PG_INITDB_WAL_DIR")
+    initdb_args+=("--waldir=$APP_DATA_LOG_DIR")
 
     local initdb_cmd=()
     if _is_run_as_root; then
-        initdb_cmd+=("gosu" "$PG_DAEMON_USER")
+        initdb_cmd+=("gosu" "$APP_USER")
     fi
     initdb_cmd+=(initdb)
 
@@ -722,16 +729,16 @@ postgresql_master_init_db() {
 # 返回值:
 #   布尔值
 postgresql_slave_init_db() {
-    LOG_I "Waiting for replication master to accept connections (${PG_INIT_MAX_TIMEOUT} timeout)..."
+    LOG_I "Waiting for replication master to accept connections (${PG_INIT_MAX_TIMEOUT} seconds)..."
     local -r check_args=("-U" "$PG_REPLICATION_USER" "-h" "$PG_MASTER_HOST" "-p" "$PG_MASTER_PORT_NUMBER" "-d" "postgres")
     local check_cmd=()
     if _is_run_as_root; then
-        check_cmd=("gosu" "$PG_DAEMON_USER")
+        check_cmd=("gosu" "$APP_USER")
     fi
     check_cmd+=(pg_isready)
     local ready_counter=$PG_INIT_MAX_TIMEOUT
 
-    while ! PGPASSWORD=$PG_REPLICATION_PASSWORD "${check_cmd[@]}" "${check_args[@]}";do
+    while ! PGPASSWORD=$PG_REPLICATION_PASSWORD "${check_cmd[@]}" "${check_args[@]}" >/dev/null 2>&1;do
         sleep 1
         ready_counter=$(( ready_counter - 1 ))
         if (( ready_counter <= 0 )); then
@@ -740,15 +747,16 @@ postgresql_slave_init_db() {
         fi
     done
 
-    LOG_I "Replicating the initial database"
+    LOG_I "Replicating the database from node master..."
+    #local -r backup_args=("-D" "$PG_DATA_DIR" -d "hostaddr=$PG_MASTER_HOST port=$PG_MASTER_PORT_NUMBER user=$PG_REPLICATION_USER password=$PG_REPLICATION_PASSWORD" -v -Fp -Xs
     local -r backup_args=("-D" "$PG_DATA_DIR" "-U" "$PG_REPLICATION_USER" "-h" "$PG_MASTER_HOST" "-p" "$PG_MASTER_PORT_NUMBER" "-X" "stream" "-w" "-v" "-P")
     local backup_cmd=()
     if _is_run_as_root; then
-        backup_cmd+=("gosu" "$PG_DAEMON_USER")
+        backup_cmd+=("gosu" "$APP_USER")
     fi
     backup_cmd+=(pg_basebackup)
-
     local replication_counter=$PG_INIT_MAX_TIMEOUT
+
     while ! PGPASSWORD=$PG_REPLICATION_PASSWORD "${backup_cmd[@]}" "${backup_args[@]}";do
         LOG_D "Backup command failed. Sleeping and trying again"
         sleep 1
