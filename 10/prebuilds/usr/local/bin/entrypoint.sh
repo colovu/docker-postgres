@@ -59,12 +59,13 @@ _main() {
 			# 以root用户启动时，修改相应目录的所属用户信息为APP_USER，确保切换用户时，权限正常
 			for dir in ${APP_DIRS}; do
     			LOG_D "Change ownership and permissions of $dir"
-    			configure_permissions_ownership "$dir" -f 755 -d 755 -u "${APP_USER}" 
+    			chmod 0755 "$dir"
+    			configure_permissions_ownership "$dir" -u "${APP_USER}" -g "${APP_GROUP}" 
 			done
 
 			# 解决 PostgreSQL 目录权限过于开放，无法初始化问题：FATAL:  data directory "/srv/data/postgresql" has group or world access
 			LOG_D "Lack of permissions on data directory: ${PG_DATA_DIR}"
-    		chmod -R 0700 ${PG_DATA_DIR} ${APP_DATA_DIR}
+    		chmod 0700 ${PG_DATA_DIR} ${APP_DATA_DIR}
 
 			# 解决使用gosu后，nginx: [emerg] open() "/dev/stdout" failed (13: Permission denied)
 			LOG_D "Change permissions of stdout/stderr to 0622"

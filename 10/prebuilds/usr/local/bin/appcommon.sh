@@ -177,7 +177,7 @@ postgresql_conf_set() {
 #   $1 - 变量
 #   $2 - 值（列表）
 postgresql_hba_set() {
-    replace_in_file "${PG_HBA_FILE}" "${key}" "${value}" false
+    replace_in_file "${PG_HBA_FILE}" "$1" "$2" false
 }
 
 # 更新 pg_ident.conf 配置文件中指定变量值
