@@ -177,7 +177,7 @@ postgresql_conf_set() {
 #   $1 - 变量
 #   $2 - 值（列表）
 postgresql_hba_set() {
-    postgresql_common_conf_set "${PG_HBA_FILE}" "$@"
+    replace_in_file "${PG_HBA_FILE}" "${key}" "${value}" false
 }
 
 # 更新 pg_ident.conf 配置文件中指定变量值
@@ -386,7 +386,7 @@ postgresql_start_server_bg() {
 
     local -r pg_isready_args=("-h" "localhost" "-p" "${PG_PORT_NUMBER}" "-U" "postgres")
     local counter=$PG_INIT_MAX_TIMEOUT
-    LOG_I "Starting check PostgreSQL is ready status..."
+    LOG_I "Starting check PostgreSQL ready status..."
     while ! pg_isready "${pg_isready_args[@]}" >/dev/null 2>&1; do
         sleep 1
         counter=$((counter - 1 ))
