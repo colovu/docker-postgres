@@ -60,7 +60,6 @@ RUN set -eux; \
 	appDeps=" \
 		postgresql-${APP_VERSION} \
 		postgresql-common \
-		libnss-wrapper \
 		xz-utils \
 		locales \
 		tzdata \
