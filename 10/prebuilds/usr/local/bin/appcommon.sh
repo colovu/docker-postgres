@@ -496,12 +496,18 @@ postgresql_default_hba_config() {
     else
         postgresql_password_auth_configuration
     fi
+}
+
+# 生成初始 pg_hba.conf 配置
+# 全局变量:
+#   PG_*
+postgresql_restrict_hba_config() {
+    LOG_I "Modify pg_hba.conf for restrict configs..."
 
     if [[ -n "$PG_PASSWORD" ]]; then
         LOG_I "Configuring md5 encrypt"
         postgresql_hba_set "trust" "md5"
     fi
-
 }
 
 # 为 Slava 模式工作的节点创建 recovery.conf 文件
@@ -695,6 +701,14 @@ docker_custom_init() {
 # 返回值:
 #   布尔值
 postgresql_master_init_db() {
+    if ! is_dir_empty "$PG_DATA_DIR"; then
+        LOG_E "Directory ${PG_DATA_DIR} exists but is not empty,"
+        LOG_E "If you want to create a new database system, either remove or empty"
+        LOG_E "the directory ${PG_DATA_DIR},  or run initdb"
+        LOG_E "with an argument other than ${PG_DATA_DIR}."
+        exit 1
+    fi
+
     local envExtraFlags=()
     local initdb_args=()
     if [[ -n "${PG_INITDB_ARGS}" ]]; then
