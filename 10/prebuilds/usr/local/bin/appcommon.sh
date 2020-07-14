@@ -14,19 +14,6 @@
 
 # 函数列表
 
-# 配置 libnss_wrapper 以使得 PostgreSQL 命令可以以任意用户身份执行
-# 全局变量:
-#   PG_*
-postgresql_enable_nss_wrapper() {
-    if ! getent passwd "$(id -u)" &> /dev/null && [ -e /usr/lib/libnss_wrapper.so ]; then
-        export LD_PRELOAD='/usr/lib/libnss_wrapper.so'
-        export NSS_WRAPPER_PASSWD="$(mktemp)"
-        export NSS_WRAPPER_GROUP="$(mktemp)"
-        echo "postgres:x:$(id -u):$(id -g):PostgreSQL:${PG_DATA_DIR}:/bin/false" > "$NSS_WRAPPER_PASSWD"
-        echo "postgres:x:$(id -g):" > "$NSS_WRAPPER_GROUP"
-    fi
-}
-
 # 加载应用使用的环境变量初始值，该函数在相关脚本中以 eval 方式调用
 # 全局变量:
 #   ENV_* : 容器使用的全局变量

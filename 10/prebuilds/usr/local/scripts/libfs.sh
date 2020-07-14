@@ -27,7 +27,7 @@ ensure_dir_exists() {
     local dir="${1:?directory is missing}"
     local owner="${2:-}"
 
-    [[ ! -d "$dir" ]] && mkdir -p "${dir}"
+    mkdir -p "${dir}"
     if [[ -n $owner ]]; then
         ensure_owned_by "$dir" "$owner"
     fi
@@ -94,13 +94,13 @@ configure_permissions_ownership() {
     read -r -a filepaths <<< "$paths"
     for p in "${filepaths[@]}"; do
         if [[ -e "$p" ]]; then
-            LOG_D "Check directory $p"
+            LOG_D "Check $p"
             if [[ -n $dir_mode ]]; then
-                LOG_D "Change permissions to 755 of directories in $p"
+                LOG_D "Change permissions to $dir_mode of directories in $p"
                 find -L "$p" -type d -exec chmod "$dir_mode" '{}' +
             fi
             if [[ -n $file_mode ]]; then
-                LOG_D "Change permissions to 755 of files in $p"
+                LOG_D "Change permissions to $file_mode of files in $p"
                 find -L "$p" -type f -exec chmod "$file_mode" '{}' +
             fi
             if [[ -n $user ]] && [[ -n $group ]]; then
@@ -110,7 +110,7 @@ configure_permissions_ownership() {
                 LOG_D "Change user to ${user} of files and directories in $p"
                 find -L "$p" \! -user ${user} -exec chown -L "$user" '{}' +
             elif [[ -z $user ]] && [[ -n $group ]]; then
-                LOG_D "Change groupto ${group} of files and directories in $p"
+                LOG_D "Change group to ${group} of files and directories in $p"
                 find -L "$p" \! -group ${group} -exec chgrp -L "$group" '{}' +
             fi
         else
