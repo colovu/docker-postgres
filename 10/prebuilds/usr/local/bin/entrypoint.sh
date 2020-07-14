@@ -48,7 +48,9 @@ docker_ensure_dir_and_configs() {
 
 	# 检测指定文件是否在配置文件存储目录存在，如果不存在则拷贝（新挂载数据卷、手动删除都会导致不存在）
 	LOG_D "Check config files..."
-	ensure_config_file_exist ${APP_DEF_DIR}/*
+	if [[ ! -z "$(ls -A "$dir")" ]]; then
+		ensure_config_file_exist "${APP_DEF_DIR}" $(ls -A "${APP_DEF_DIR}")
+	fi
 }
 
 _main() {

@@ -638,13 +638,12 @@ docker_custom_preinit() {
     # 检测用户配置文件目录是否存在 preinitdb.d 文件夹，如果存在，尝试执行目录中的初始化脚本
     if [ -d "/srv/conf/${APP_NAME}/preinitdb.d" ]; then
         # 检测数据存储目录是否存在已初始化标志文件；如果不存在，检索可执行脚本文件并进行初始化操作
-        if [ ! -f "${APP_DATA_DIR}/.custom_preinit_flag" ]; then
+        if [[ -n $(find "/srv/conf/${APP_NAME}/preinitdb.d/" -type f -regex ".*\.\(sh\)") ]] && \
+            [[ ! -f "${APP_DATA_DIR}/.custom_preinit_flag" ]]; then
             LOG_I "Process custom pre-init scripts from /srv/conf/${APP_NAME}/preinitdb.d..."
 
-            # 检测目录权限，防止初始化失败
-            ls "/srv/conf/${APP_NAME}/preinitdb.d/" > /dev/null
-
-            docker_process_init_files /srv/conf/${APP_NAME}/preinitdb.d/*
+            # 检索所有可执行脚本，排序后执行
+            find "/srv/conf/${APP_NAME}/preinitdb.d/" -type f -regex ".*\.\(sh\)" | sort | docker_process_init_files
 
             touch ${APP_DATA_DIR}/.custom_preinit_flag
             echo "$(date '+%Y-%m-%d %H:%M:%S') : Init success." >> ${APP_DATA_DIR}/.custom_preinit_flag

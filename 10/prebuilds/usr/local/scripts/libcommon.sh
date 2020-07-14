@@ -91,23 +91,27 @@ docker_process_init_files() {
 # 默认配置文件路径：/etc/${APP_NAME}
 # 目标配置文件路径：/srv/conf/${APP_NAME}
 # 参数：
-#   $* - 文件及目录列表字符串，以" "分割
+#   $1 - 基础路径
+#   $* - 基础路径下的文件及目录列表，以" "分割
 # 例子: 
-#   ensure_config_file_exist /etc/${APP_NAME}/*
+#   ensure_config_file_exist /etc/${APP_NAME} conf.d server.conf
 ensure_config_file_exist() {
-    local f
+    local -r base_path="${1:?paths is missing}"
+    local f=""
+    local dist=""
 
+    shift 1
     LOG_D "List to check: $@"
     while [ "$#" -gt 0 ]; do
         f="${1}"
         LOG_D "Process ${f}"
-        if [ -d ${f} ]; then
-            dist="$(echo ${f} | sed -e 's/\/etc/\/srv\/conf/g')"
+        if [ -d "${f}" ]; then
+            dist="$(echo ${base_path}/${f} | sed -e 's/\/etc/\/srv\/conf/g')"
             [ ! -d "${dist}" ] && LOG_I "Create directory: ${dist}" && mkdir -p "${dist}"
-            [[ ! -z $(ls -A "$f") ]] && ensure_config_file_exist ${f}/*
+            [[ ! -z $(ls -A "${f}") ]] && ensure_config_file_exist "${base_path}/${f}" $(ls -A "${base_path}/${f}")
         else
-            dist="$(echo ${f} | sed -e 's/\/etc/\/srv\/conf/g')"
-            [ ! -e "${dist}" ] && LOG_I "Copy: ${f} ===> ${dist}" && cp "${f}" "${dist}" && rm -rf "/srv/data/${APP_NAME}/.app_init_flag"
+            dist="$(echo ${base_path}/${f} | sed -e 's/\/etc/\/srv\/conf/g')"
+            [ ! -e "${dist}" ] && LOG_I "Copy: ${base_path}/${f} ===> ${dist}" && cp "${base_path}/${f}" "${dist}" && rm -rf "/srv/conf/${APP_NAME}/.app_init_flag"
         fi
         shift
     done
