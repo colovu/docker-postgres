@@ -129,7 +129,7 @@ _is_run_as_root() {
 _is_restart() {
     if [ x"${RESTART_FLAG:-}" = "x" ]; then
         false
-    then
+    else
         true
     fi
 }
