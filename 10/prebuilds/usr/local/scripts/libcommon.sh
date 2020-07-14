@@ -15,24 +15,22 @@ BOLD='\033[1m'
 # 全局变量:
 #   APP_NAME
 print_image_welcome_page() {
-    local github_url="https://github.com/colovu/docker-${APP_NAME}"
-    if [ x"${WELCOME_MESSAGE:-}" = "x" ]; then
-        LOG_I ""
-        LOG_I "      ########  ########  ###       ########  ###   ##  ###   ##"
-        LOG_I "     ###   ##  ###   ##  ###       ###   ##  ###   ##  ###   ##"
-        LOG_I "    ###       ###   ##  ###       ###   ##  ###   ##  ###   ##"
-        LOG_I "   ###       ###   ##  ###       ###   ##  ###   ##  ###   ##"
-        LOG_I "  ###       ###   ##  ###       ###   ##   ### ##   ###   ##"
-        LOG_I " ###   ##  ###   ##  ###       ###   ##    ####    ###   ##"
-        LOG_I "########  ########  ########  ########     ##     ########"
-        LOG_I ""
-        LOG_I "Welcome to the ${BOLD}${APP_NAME}${RESET} container"
-        LOG_I "Project on Github: ${BOLD}${github_url}${RESET}"
-        LOG_I "Send us your feedback at ${BOLD}endial@126.com${RESET}"
-        LOG_I ""
+    _is_restart && return
 
-        export WELCOME_MESSAGE=1
-    fi
+    local github_url="https://github.com/colovu/docker-${APP_NAME}"
+    LOG_I ""
+    LOG_I "      ########  ########  ###       ########  ###   ##  ###   ##"
+    LOG_I "     ###   ##  ###   ##  ###       ###   ##  ###   ##  ###   ##"
+    LOG_I "    ###       ###   ##  ###       ###   ##  ###   ##  ###   ##"
+    LOG_I "   ###       ###   ##  ###       ###   ##  ###   ##  ###   ##"
+    LOG_I "  ###       ###   ##  ###       ###   ##   ### ##   ###   ##"
+    LOG_I " ###   ##  ###   ##  ###       ###   ##    ####    ###   ##"
+    LOG_I "########  ########  ########  ########     ##     ########"
+    LOG_I ""
+    LOG_I "Welcome to the ${BOLD}${APP_NAME}${RESET} container"
+    LOG_I "Project on Github: ${BOLD}${github_url}${RESET}"
+    LOG_I "Send us your feedback at ${BOLD}endial@126.com${RESET}"
+    LOG_I ""
 }
 
 # 根据需要打印欢迎信息
@@ -99,7 +97,7 @@ docker_process_init_files() {
 ensure_config_file_exist() {
     local f
 
-    LOG_D "Parameter: $@"
+    LOG_D "List to check: $@"
     while [ "$#" -gt 0 ]; do
         f="${1}"
         LOG_D "Process ${f}"
@@ -125,6 +123,14 @@ _is_run_as_root() {
     else
         LOG_D "User id: $(id -u)"
         false
+    fi
+}
+
+_is_restart() {
+    if [ x"${RESTART_FLAG:-}" = "x" ]; then
+        false
+    then
+        true
     fi
 }
 

@@ -27,7 +27,7 @@ ensure_dir_exists() {
     local dir="${1:?directory is missing}"
     local owner="${2:-}"
 
-    mkdir -p "${dir}"
+    [[ ! -d "$dir" ]] && mkdir -p "${dir}"
     if [[ -n $owner ]]; then
         ensure_owned_by "$dir" "$owner"
     fi

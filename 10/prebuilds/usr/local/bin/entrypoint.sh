@@ -34,6 +34,8 @@ docker_print_welcome
 # 全局变量：
 # 	APP_*
 docker_ensure_dir_and_configs() {
+    _is_restart && return
+
 	local user_id; user_id="$(id -u)"
 
 	LOG_D "Directories: ${APP_DIRS}"
@@ -43,7 +45,7 @@ docker_ensure_dir_and_configs() {
 	done
 
 	# 检测指定文件是否在配置文件存储目录存在，如果不存在则拷贝（新挂载数据卷、手动删除都会导致不存在）
-	LOG_D "Check config files"
+	LOG_D "Check config files..."
 	ensure_config_file_exist ${APP_DEF_DIR}/*
 }
 
@@ -75,13 +77,14 @@ _main() {
 
 			# 解决 PostgreSQL 目录权限过于开放，无法初始化问题：FATAL:  data directory "/srv/data/postgresql" has group or world access
 			LOG_D "Lack of permissions on data directory: ${PG_DATA_DIR}"
-    		chmod 0700 ${PG_DATA_DIR} ${APP_DATA_DIR}
+    		chmod 0700 ${PG_DATA_DIR}
 
 			# 解决使用gosu后，nginx: [emerg] open() "/dev/stdout" failed (13: Permission denied)
 			LOG_D "Change permissions of stdout/stderr to 0622"
 			chmod 0622 /dev/stdout /dev/stderr
 
 			LOG_I "Restart container with default user: ${APP_USER}"
+	        export RESTART_FLAG=1
 			exec gosu "${APP_USER}" "$0" "$@"
 		fi
 		
