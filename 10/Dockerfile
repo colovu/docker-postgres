@@ -3,10 +3,10 @@
 # 指定原始系统镜像，常用镜像为 colovu/ubuntu:18.04、colovu/debian:10-buster、colovu/alpine:3.11、colovu/openjdk:8u252-jre
 FROM colovu/ubuntu:18.04
 
-# 外部指定应用版本信息
+# 外部指定应用版本信息，如 "--build-arg app_ver=6.0.0"
 ARG app_ver=10
-# 编译镜像时指定本地服务器地址，如 "http://172.29.14.108/dist-files/"
-ARG LOCAL_SERVER=
+# 编译镜像时指定本地服务器地址，如 "--build-arg LOCAL_SERVER=http://172.29.14.108/dist-files/"
+ARG LOCAL_SERVER
 
 ENV APP_NAME=postgresql \
 	APP_EXEC=postgres \
@@ -59,7 +59,7 @@ RUN set -eux; \
 	\
 # 应用软件包及依赖项。相关软件包在镜像创建完成时，不会被清理
 	appDeps=" \
-		postgresql-${PG_MAJOR} \
+		postgresql-${APP_VERSION} \
 		postgresql-common \
 		libnss-wrapper \
 		xz-utils \
@@ -94,8 +94,8 @@ RUN set -eux; \
 	\
 	\
 # 增加软件包特有源，并使用系统包管理方式安装软件
-	echo "deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main ${PG_MAJOR}" >> /etc/apt/sources.list; \
-	echo "deb-src http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main ${PG_MAJOR}" >> /etc/apt/sources.list; \
+	echo "deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main ${APP_VERSION}" >> /etc/apt/sources.list; \
+	echo "deb-src http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main ${APP_VERSION}" >> /etc/apt/sources.list; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends ${appDeps}; \
 	\
