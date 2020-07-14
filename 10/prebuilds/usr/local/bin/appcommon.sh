@@ -597,7 +597,7 @@ docker_app_init() {
             # 为数据库授权；默认用户不为 postgres 时，需要创建管理员账户
             LOG_D "Set password for postgres user"
             if [[ "$PG_USERNAME" = "postgres" ]]; then
-                postgresql_alter_postgres_user "$PG_PASSWORD"
+                [[ -n "$PG_PASSWORD" ]] && postgresql_alter_postgres_user "$PG_PASSWORD"
             else
                 if [[ -n "$PG_POSTGRES_PASSWORD" ]]; then
                     postgresql_alter_postgres_user "$PG_POSTGRES_PASSWORD"

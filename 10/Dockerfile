@@ -51,8 +51,7 @@ RUN set -eux; \
 	chmod +x /usr/local/bin/entrypoint.sh; \
 	\
 # 为应用创建对应的组、用户、相关目录
-	APP_DIRS="${APP_DEF_DIR:-} ${APP_CONF_DIR:-} ${APP_DATA_DIR:-} ${APP_CACHE_DIR:-} ${APP_RUN_DIR:-} \
-		${APP_LOG_DIR:-} ${APP_CERT_DIR:-} ${APP_WWW_DIR:-} ${APP_DATA_LOG_DIR:-} ${APP_BASE_DIR:-${APP_DATA_DIR}}"; \
+	APP_DIRS="${APP_DEF_DIR:-} ${APP_CONF_DIR:-} ${APP_DATA_DIR:-} ${APP_CACHE_DIR:-} ${APP_RUN_DIR:-} ${APP_LOG_DIR:-} ${APP_CERT_DIR:-} ${APP_WWW_DIR:-} ${APP_DATA_LOG_DIR:-} ${APP_BASE_DIR:-${APP_DATA_DIR}}"; \
 	mkdir -p ${APP_DIRS}; \
 	groupadd -r ${APP_GROUP}; \
 	useradd -r -g ${APP_GROUP} -s /usr/sbin/nologin -d ${APP_BASE_DIR} ${APP_USER}; \

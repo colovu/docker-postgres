@@ -23,8 +23,7 @@ LOG_D "Run entrypoint.sh for container init..."
 eval "$(docker_app_env)"
 
 # 定义容器中使用的默认目录(未定义时设置默认值为空"")
-APP_DIRS="${APP_DEF_DIR:-} ${APP_HOME_DIR:-} ${APP_CONF_DIR:-} ${APP_DATA_DIR:-} ${APP_CACHE_DIR:-} ${APP_RUN_DIR:-} \
-	${APP_LOG_DIR:-} ${APP_CERT_DIR:-} ${APP_WWW_DIR:-} ${APP_DATA_LOG_DIR:-}"
+APP_DIRS="${APP_DEF_DIR:-} ${APP_HOME_DIR:-} ${APP_CONF_DIR:-} ${APP_DATA_DIR:-} ${APP_CACHE_DIR:-} ${APP_RUN_DIR:-} ${APP_LOG_DIR:-} ${APP_CERT_DIR:-} ${APP_WWW_DIR:-} ${APP_DATA_LOG_DIR:-}"
 
 APP_DIRS="${APP_DIRS} ${PG_DATA_DIR}"
 
@@ -37,6 +36,7 @@ docker_print_welcome
 docker_ensure_dir_and_configs() {
 	local user_id; user_id="$(id -u)"
 
+	LOG_D "Directories: ${APP_DIRS}"
 	for dir in ${APP_DIRS}; do
     	LOG_D "Check directory $dir"
     	ensure_dir_exists "$dir"
