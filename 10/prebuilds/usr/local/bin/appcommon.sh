@@ -14,6 +14,27 @@
 
 # 函数列表
 
+# 配置 libnss_wrapper 以使得 PostgreSQL 命令可以以任意用户身份执行
+# 全局变量:
+#   PG_*
+postgresql_enable_nss_wrapper() {
+    if ! getent passwd "$(id -u)" &> /dev/null && [ -e /usr/lib/libnss_wrapper.so ]; then
+        export LD_PRELOAD='/usr/lib/libnss_wrapper.so'
+        export NSS_WRAPPER_PASSWD="$(mktemp)"
+        export NSS_WRAPPER_GROUP="$(mktemp)"
+        echo "postgres:x:$(id -u):$(id -g):PostgreSQL:${PG_DATA_DIR}:/bin/false" > "$NSS_WRAPPER_PASSWD"
+        echo "postgres:x:$(id -g):" > "$NSS_WRAPPER_GROUP"
+    fi
+}
+
+postgresql_disable_nss_wrapper() {
+    # unset/cleanup "nss_wrapper" bits
+    if [ "${LD_PRELOAD:-}" = '/usr/lib/libnss_wrapper.so' ]; then
+        rm -f "$NSS_WRAPPER_PASSWD" "$NSS_WRAPPER_GROUP"
+        unset LD_PRELOAD NSS_WRAPPER_PASSWD NSS_WRAPPER_GROUP
+    fi
+}
+
 # 加载应用使用的环境变量初始值，该函数在相关脚本中以 eval 方式调用
 # 全局变量:
 #   ENV_* : 容器使用的全局变量
@@ -183,85 +204,6 @@ postgresql_recover_set() {
     postgresql_common_conf_set "${PG_RECOVERY_FILE}" "$@"
 }
 
-# 检测用户参数信息是否满足条件; 针对部分权限过于开放情况，打印提示信息
-# 全局变量：
-#   PG_*
-app_verify_minimum_env() {
-    local error_code=0
-    LOG_D "Validating settings in PG_* env vars..."
-
-    # Auxiliary functions
-    print_validation_error() {
-        LOG_E "$1"
-        error_code=1
-    }
-
-    empty_password_enabled_warn() {
-        LOG_W "You set the environment variable ALLOW_EMPTY_PASSWORD=${ALLOW_EMPTY_PASSWORD}. For safety reasons, do not use this flag in a production environment."
-    }
-    empty_password_error() {
-        print_validation_error "The $1 environment variable is empty or not set. Set the environment variable ALLOW_EMPTY_PASSWORD=yes to allow the container to be started with blank passwords. This is recommended only for development."
-    }
-    if is_boolean_yes "$ALLOW_EMPTY_PASSWORD"; then
-        empty_password_enabled_warn
-    else
-        if [[ -z "$PG_PASSWORD" ]]; then
-            empty_password_error "PG_PASSWORD"
-        fi
-        if (( ${#PG_PASSWORD} > 100 )); then
-            print_validation_error "The password cannot be longer than 100 characters. Set the environment variable PG_PASSWORD with a shorter value"
-        fi
-        if [[ -n "$PG_USERNAME" ]] && [[ -z "$PG_PASSWORD" ]]; then
-            empty_password_error "PG_PASSWORD"
-        fi
-        if [[ -n "$PG_USERNAME" ]] && [[ "$PG_USERNAME" != "postgres" ]] && [[ -n "$PG_PASSWORD" ]] && [[ -z "$PG_DATABASE" ]]; then
-            print_validation_error "In order to use a custom PostgreSQL user you need to set the environment variable PG_DATABASE as well"
-        fi
-    fi
-
-    if [[ -n "$PG_REPLICATION_MODE" ]]; then
-        if [[ "$PG_REPLICATION_MODE" = "master" ]]; then
-            if (( PG_NUM_SYNCHRONOUS_REPLICAS < 0 )); then
-                print_validation_error "The number of synchronous replicas cannot be less than 0. Set the environment variable PG_NUM_SYNCHRONOUS_REPLICAS"
-            fi
-        elif [[ "$PG_REPLICATION_MODE" = "slave" ]]; then
-            if [[ -z "$PG_MASTER_HOST" ]]; then
-                print_validation_error "Slave replication mode chosen without setting the environment variable PG_MASTER_HOST. Use it to indicate where the Master node is running"
-            fi
-            if [[ -z "$PG_REPLICATION_USER" ]]; then
-                print_validation_error "Slave replication mode chosen without setting the environment variable PG_REPLICATION_USER. Make sure that the master also has this parameter set"
-            fi
-        else
-            print_validation_error "Invalid replication mode. Available options are 'master/slave'"
-        fi
-        # Common replication checks
-        if [[ -n "$PG_REPLICATION_USER" ]] && [[ -z "$PG_REPLICATION_PASSWORD" ]]; then
-            empty_password_error "PG_REPLICATION_PASSWORD"
-        fi
-    else
-        if is_boolean_yes "$ALLOW_EMPTY_PASSWORD"; then
-            empty_password_enabled_warn
-        else
-            if [[ -z "$PG_PASSWORD" ]]; then
-                empty_password_error "PG_PASSWORD"
-            fi
-            if [[ -n "$PG_USERNAME" ]] && [[ -z "$PG_PASSWORD" ]]; then
-                empty_password_error "PG_PASSWORD"
-            fi
-        fi
-    fi
-
-    if ! is_yes_no_value "$PG_ENABLE_LDAP"; then
-        empty_password_error "The values allowed for PG_ENABLE_LDAP are: yes or no"
-    fi
-
-    if is_boolean_yes "$PG_ENABLE_LDAP" && [[ -n "$PG_LDAP_URL" ]] && [[ -n "$PG_LDAP_SERVER" ]]; then
-        empty_password_error "You can not set PG_LDAP_URL and PG_LDAP_SERVER at the same time. Check your LDAP configuration."
-    fi
-
-    [[ "$error_code" -eq 0 ]] || exit "$error_code"
-}
-
 # 初始化 pg_hba.conf 文件，增加 LDAP 配置；同时保留本地认证
 # 全局变量:
 #   PG_*
@@ -321,82 +263,6 @@ host     all             all             ::/0                    trust
 EOF
 }
 
-# 更改默认监听地址为 "*" 或 "0.0.0.0"，以对容器外提供服务；默认配置文件应当为仅监听 localhost(127.0.0.1)
-app_enable_remote_connections() {
-    LOG_D "Modify default config to enable all IP access"
-    postgresql_conf_set "listen_addresses" "*"
-}
-
-# 以后台方式启动应用服务，并等待启动就绪
-# 全局变量:
-#   PG_*
-#   ENV_DEBUG
-app_start_server_bg() {
-    is_app_server_running && return
-
-    # -w wait until operation completes (default)
-    # -W don't wait until operation completes
-    # -D location of the database storage area
-    # -l write (or append) server log to FILENAME
-    # -o command line options to pass to postgres or initdb
-    local -r pg_ctl_flags=("-W" "-D" "$PG_DATA_DIR" "-l" "$PG_LOG_FILE" "-o" "--config-file=$PG_CONF_FILE --external_pid_file=$PG_PID_FILE --hba_file=$PG_HBA_FILE")
-    LOG_I "Starting ${APP_NAME} in background..."
-    local pg_ctl_cmd=()
-    if _is_run_as_root; then
-        pg_ctl_cmd+=("gosu" "$APP_USER")
-    fi
-    pg_ctl_cmd+=(pg_ctl)
-    if is_boolean_yes "${ENV_DEBUG}"; then
-        "${pg_ctl_cmd[@]}" "start" "${pg_ctl_flags[@]}"
-    else
-        "${pg_ctl_cmd[@]}" "start" "${pg_ctl_flags[@]}" >/dev/null 2>&1
-    fi
-
-    local -r check_args=("-h" "localhost" "-p" "${PG_PORT_NUMBER}" "-U" "postgres")
-    local check_cmd=()
-    if _is_run_as_root; then
-        check_cmd=("gosu" "$APP_USER")
-    fi
-    check_cmd+=(pg_isready)
-    local counter=$PG_INIT_MAX_TIMEOUT
-    LOG_I "Checking ${APP_NAME} ready status..."
-    while ! PGPASSWORD=$PG_REPLICATION_PASSWORD "${check_cmd[@]}" "${check_args[@]}" >/dev/null 2>&1; do
-        sleep 1
-        counter=$(( counter - 1 ))
-        if (( counter <= 0 )); then
-            LOG_E "PostgreSQL is not ready after $PG_INIT_MAX_TIMEOUT seconds"
-            exit 1
-        fi
-    done
-    LOG_D "${APP_NAME} is ready for service..."
-}
-
-# 停止 PostgreSQL 后台服务
-# 全局变量:
-#   PG_PID_FILE
-app_stop_server() {
-    LOG_I "Stopping ${APP_NAME}..."
-    stop_service_using_pid "$PG_PID_FILE"
-}
-
-# 检测应用服务是否在后台运行中
-# 全局变量:
-#   PG_PID_FILE
-# 返回值:
-#   布尔值
-is_app_server_running() {
-    local pid
-    pid="$(get_pid_from_file "$PG_PID_FILE")"
-
-    if [[ -z "$pid" ]]; then
-        LOG_D "${APP_NAME} is Stopped..."
-        false
-    else
-        LOG_D "${APP_NAME} is Running..."
-        is_service_running "$pid"
-    fi
-}
-
 # 使用运行中的 PostgreSQL 服务执行 SQL 操作
 # 全局变量:
 #   ENV_DEBUG
@@ -426,33 +292,6 @@ postgresql_execute() {
     else
         PGPASSWORD=$pass "${cmd[@]}" "${args[@]}" >/dev/null 2>&1
     fi
-}
-
-# 清理初始化应用时生成的临时文件
-app_clean_tmp_file() {
-    LOG_D "Clean ${APP_NAME} tmp files..."
-
-	rm -rf "${PG_LOG_FILE}"
-}
-
-# 在重新启动容器时，删除标志文件及必须删除的临时文件 (容器重新启动)
-# 全局变量:
-#   APP_*
-#   PG_*
-app_clean_from_restart() {
-    local -r -a files=(
-        "$PG_DATA_DIR"/postmaster.pid
-        "$PG_DATA_DIR"/standby.signal
-        "$PG_DATA_DIR"/recovery.signal
-        "$PG_PID_FILE"
-    )
-
-    for file in "${files[@]}"; do
-        if [[ -f "$file" ]]; then
-            LOG_I "Cleaning stale $file file"
-            rm "$file"
-        fi
-    done
 }
 
 # 生成初始 postgres.conf 配置
@@ -554,6 +393,188 @@ postgresql_create_replication_user() {
 #   PG_*
 postgresql_create_custom_database() {
     echo "CREATE DATABASE \"$PG_DATABASE\"" | postgresql_execute "" "postgres" "" "localhost"
+}
+
+# 检测用户参数信息是否满足条件; 针对部分权限过于开放情况，打印提示信息
+# 全局变量：
+#   PG_*
+app_verify_minimum_env() {
+    local error_code=0
+    LOG_D "Validating settings in PG_* env vars..."
+
+    # Auxiliary functions
+    print_validation_error() {
+        LOG_E "$1"
+        error_code=1
+    }
+
+    empty_password_enabled_warn() {
+        LOG_W "You set the environment variable ALLOW_EMPTY_PASSWORD=${ALLOW_EMPTY_PASSWORD}. For safety reasons, do not use this flag in a production environment."
+    }
+    empty_password_error() {
+        print_validation_error "The $1 environment variable is empty or not set. Set the environment variable ALLOW_EMPTY_PASSWORD=yes to allow the container to be started with blank passwords. This is recommended only for development."
+    }
+    if is_boolean_yes "$ALLOW_EMPTY_PASSWORD"; then
+        empty_password_enabled_warn
+    else
+        if [[ -z "$PG_PASSWORD" ]]; then
+            empty_password_error "PG_PASSWORD"
+        fi
+        if (( ${#PG_PASSWORD} > 100 )); then
+            print_validation_error "The password cannot be longer than 100 characters. Set the environment variable PG_PASSWORD with a shorter value"
+        fi
+        if [[ -n "$PG_USERNAME" ]] && [[ -z "$PG_PASSWORD" ]]; then
+            empty_password_error "PG_PASSWORD"
+        fi
+        if [[ -n "$PG_USERNAME" ]] && [[ "$PG_USERNAME" != "postgres" ]] && [[ -n "$PG_PASSWORD" ]] && [[ -z "$PG_DATABASE" ]]; then
+            print_validation_error "In order to use a custom PostgreSQL user you need to set the environment variable PG_DATABASE as well"
+        fi
+    fi
+
+    if [[ -n "$PG_REPLICATION_MODE" ]]; then
+        if [[ "$PG_REPLICATION_MODE" = "master" ]]; then
+            if (( PG_NUM_SYNCHRONOUS_REPLICAS < 0 )); then
+                print_validation_error "The number of synchronous replicas cannot be less than 0. Set the environment variable PG_NUM_SYNCHRONOUS_REPLICAS"
+            fi
+        elif [[ "$PG_REPLICATION_MODE" = "slave" ]]; then
+            if [[ -z "$PG_MASTER_HOST" ]]; then
+                print_validation_error "Slave replication mode chosen without setting the environment variable PG_MASTER_HOST. Use it to indicate where the Master node is running"
+            fi
+            if [[ -z "$PG_REPLICATION_USER" ]]; then
+                print_validation_error "Slave replication mode chosen without setting the environment variable PG_REPLICATION_USER. Make sure that the master also has this parameter set"
+            fi
+        else
+            print_validation_error "Invalid replication mode. Available options are 'master/slave'"
+        fi
+        # Common replication checks
+        if [[ -n "$PG_REPLICATION_USER" ]] && [[ -z "$PG_REPLICATION_PASSWORD" ]]; then
+            empty_password_error "PG_REPLICATION_PASSWORD"
+        fi
+    else
+        if is_boolean_yes "$ALLOW_EMPTY_PASSWORD"; then
+            empty_password_enabled_warn
+        else
+            if [[ -z "$PG_PASSWORD" ]]; then
+                empty_password_error "PG_PASSWORD"
+            fi
+            if [[ -n "$PG_USERNAME" ]] && [[ -z "$PG_PASSWORD" ]]; then
+                empty_password_error "PG_PASSWORD"
+            fi
+        fi
+    fi
+
+    if ! is_yes_no_value "$PG_ENABLE_LDAP"; then
+        empty_password_error "The values allowed for PG_ENABLE_LDAP are: yes or no"
+    fi
+
+    if is_boolean_yes "$PG_ENABLE_LDAP" && [[ -n "$PG_LDAP_URL" ]] && [[ -n "$PG_LDAP_SERVER" ]]; then
+        empty_password_error "You can not set PG_LDAP_URL and PG_LDAP_SERVER at the same time. Check your LDAP configuration."
+    fi
+
+    [[ "$error_code" -eq 0 ]] || exit "$error_code"
+}
+
+# 更改默认监听地址为 "*" 或 "0.0.0.0"，以对容器外提供服务；默认配置文件应当为仅监听 localhost(127.0.0.1)
+app_enable_remote_connections() {
+    LOG_D "Modify default config to enable all IP access"
+    postgresql_conf_set "listen_addresses" "*"
+}
+
+# 以后台方式启动应用服务，并等待启动就绪
+# 全局变量:
+#   PG_*
+#   ENV_DEBUG
+app_start_server_bg() {
+    is_app_server_running && return
+
+    # -w wait until operation completes (default)
+    # -W don't wait until operation completes
+    # -D location of the database storage area
+    # -l write (or append) server log to FILENAME
+    # -o command line options to pass to postgres or initdb
+    local -r pg_ctl_flags=("-W" "-D" "$PG_DATA_DIR" "-l" "$PG_LOG_FILE" "-o" "--config-file=$PG_CONF_FILE --external_pid_file=$PG_PID_FILE --hba_file=$PG_HBA_FILE")
+    LOG_I "Starting ${APP_NAME} in background..."
+    local pg_ctl_cmd=()
+    if _is_run_as_root; then
+        pg_ctl_cmd+=("gosu" "$APP_USER")
+    fi
+    pg_ctl_cmd+=(pg_ctl)
+    if is_boolean_yes "${ENV_DEBUG}"; then
+        "${pg_ctl_cmd[@]}" "start" "${pg_ctl_flags[@]}"
+    else
+        "${pg_ctl_cmd[@]}" "start" "${pg_ctl_flags[@]}" >/dev/null 2>&1
+    fi
+
+    local -r check_args=("-h" "localhost" "-p" "${PG_PORT_NUMBER}" "-U" "postgres")
+    local check_cmd=()
+    if _is_run_as_root; then
+        check_cmd=("gosu" "$APP_USER")
+    fi
+    check_cmd+=(pg_isready)
+    local counter=$PG_INIT_MAX_TIMEOUT
+    LOG_I "Checking ${APP_NAME} ready status..."
+    while ! PGPASSWORD=$PG_REPLICATION_PASSWORD "${check_cmd[@]}" "${check_args[@]}" >/dev/null 2>&1; do
+        sleep 1
+        counter=$(( counter - 1 ))
+        if (( counter <= 0 )); then
+            LOG_E "PostgreSQL is not ready after $PG_INIT_MAX_TIMEOUT seconds"
+            exit 1
+        fi
+    done
+    LOG_D "${APP_NAME} is ready for service..."
+}
+
+# 停止 PostgreSQL 后台服务
+# 全局变量:
+#   PG_PID_FILE
+app_stop_server() {
+    LOG_I "Stopping ${APP_NAME}..."
+    stop_service_using_pid "$PG_PID_FILE"
+}
+
+# 检测应用服务是否在后台运行中
+# 全局变量:
+#   PG_PID_FILE
+# 返回值:
+#   布尔值
+is_app_server_running() {
+    local pid
+    pid="$(get_pid_from_file "$PG_PID_FILE")"
+
+    if [[ -z "$pid" ]]; then
+        LOG_D "${APP_NAME} is Stopped..."
+        false
+    else
+        LOG_D "${APP_NAME} is Running..."
+        is_service_running "$pid"
+    fi
+}
+
+# 清理初始化应用时生成的临时文件
+app_clean_tmp_file() {
+    LOG_D "Clean ${APP_NAME} tmp files..."
+
+	rm -rf "${PG_LOG_FILE}"
+}
+
+# 在重新启动容器时，删除标志文件及必须删除的临时文件 (容器重新启动)
+# 全局变量:
+#   APP_*
+#   PG_*
+app_clean_from_restart() {
+    local -r -a files=(
+        "$PG_DATA_DIR"/postmaster.pid
+        "$PG_DATA_DIR"/standby.signal
+        "$PG_DATA_DIR"/recovery.signal
+        "$PG_PID_FILE"
+    )
+
+    for file in "${files[@]}"; do
+        if [[ -f "$file" ]]; then
+            LOG_I "Cleaning stale $file file"
+            rm "$file"
+        fi
+    done
 }
 
 # 应用默认初始化操作

@@ -30,6 +30,8 @@ APP_DIRS="${APP_DIRS} ${PG_DATA_DIR}"
 # 打印镜像欢迎信息
 docker_print_welcome
 
+postgresql_enable_nss_wrapper
+
 # 检测数据卷，创建默认的关联目录，并拷贝所必须的默认配置文件及初始化文件
 # 全局变量：
 # 	APP_*
@@ -84,7 +86,7 @@ _main() {
 
 			LOG_I "Restart container with default user: ${APP_USER}"
 	        export RESTART_FLAG=1
-			exec gosu "${APP_USER}" "$0" "$@"
+			exec gosu "${APP_USER}" "$0" $(eval echo "$@")
 		fi
 		
 		# 执行预初始化操作
@@ -98,8 +100,8 @@ _main() {
 	fi
 
 	LOG_I "Start container with command: $@"
-	# 执行命令行
-	exec "$@"
+	# 执行命令行。使用 evel 替换后，可支持 Dockerfile 脚本的 CMD 命令中使用变量
+	exec $(eval echo "$@")
 }
 
 # 脚本入口命令

@@ -5,9 +5,11 @@ FROM colovu/ubuntu:18.04
 
 # 外部指定应用版本信息，如 "--build-arg app_ver=6.0.0"
 ARG app_ver=10
-# 编译镜像时指定本地服务器地址，如 "--build-arg LOCAL_SERVER=http://172.29.14.108/dist-files/"
-ARG LOCAL_SERVER
 
+# 编译镜像时指定本地服务器地址，如 "--build-arg local_url=http://172.29.14.108/dist-files/"
+ARG local_url=""
+
+# 定义应用基础常量信息，该常量在容器内可使用
 ENV APP_NAME=postgresql \
 	APP_EXEC=postgres \
 	APP_USER=postgres \
@@ -53,13 +55,15 @@ RUN set -eux; \
 # 为应用创建对应的组、用户、相关目录
 	APP_DIRS="${APP_DEF_DIR:-} ${APP_CONF_DIR:-} ${APP_DATA_DIR:-} ${APP_CACHE_DIR:-} ${APP_RUN_DIR:-} ${APP_LOG_DIR:-} ${APP_CERT_DIR:-} ${APP_WWW_DIR:-} ${APP_DATA_LOG_DIR:-} ${APP_BASE_DIR:-${APP_DATA_DIR}}"; \
 	mkdir -p ${APP_DIRS}; \
-	groupadd -r ${APP_GROUP}; \
-	useradd -r -g ${APP_GROUP} -s /usr/sbin/nologin -d ${APP_BASE_DIR} ${APP_USER}; \
+	groupadd -r -g 999 ${APP_GROUP}; \
+	useradd -r -g ${APP_GROUP} -u 999 -s /bin/bash -d ${APP_DATA_DIR} ${APP_USER}; \
 	\
 # 应用软件包及依赖项。相关软件包在镜像创建完成时，不会被清理
 	appDeps=" \
 		postgresql-${APP_VERSION} \
 		postgresql-common \
+		pgdg-keyring \
+		libnss-wrapper \
 		xz-utils \
 		locales \
 		tzdata \
@@ -146,5 +150,5 @@ EXPOSE 5432
 # 容器初始化命令，默认存放在：/usr/local/bin/entrypoint.sh
 ENTRYPOINT ["entrypoint.sh"]
 
-# 应用程序的服务命令，必须使用非守护进程方式运行。该配置不能使用变量定义
-CMD ["postgres", "--config-file=/srv/conf/postgresql/10/main/postgresql.conf"]
+# 应用程序的服务命令，必须使用非守护进程方式运行。如果使用变量，则该变量必须在运行环境中存在（ENV可以获取）
+CMD ["${APP_EXEC}", "--config-file=${PG_CONF_FILE}"]
