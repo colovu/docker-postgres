@@ -54,6 +54,9 @@ docker_ensure_dir_and_configs() {
 }
 
 _main() {
+	# 替换命令行中的变量
+	set -- $(eval echo "$@")
+
 	# 如果命令行参数是以配置参数("-")开始，修改执行命令，确保使用可执行应用命令启动服务器
 	if [ "${1:0:1}" = '-' ]; then
 		set -- "${APP_EXEC}" "$@"
@@ -87,9 +90,11 @@ _main() {
 			LOG_D "Change permissions of stdout/stderr to 0622"
 			chmod 0622 /dev/stdout /dev/stderr
 
+			LOG_I ""
 			LOG_I "Restart container with default user: ${APP_USER}"
+			LOG_I "  command: $@"
 	        export RESTART_FLAG=1
-			exec gosu "${APP_USER}" "$0" $(eval echo "$@")
+			exec gosu "${APP_USER}" "$0" "$@"
 		fi
 		
 		# 执行预初始化操作
@@ -103,8 +108,8 @@ _main() {
 	fi
 
 	LOG_I "Start container with command: $@"
-	# 执行命令行。使用 evel 替换后，可支持 Dockerfile 脚本的 CMD 命令中使用变量
-	exec $(eval echo "$@")
+	# 执行命令行。
+	exec "$@"
 }
 
 # 脚本入口命令

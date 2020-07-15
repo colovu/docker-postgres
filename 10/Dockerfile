@@ -151,4 +151,4 @@ EXPOSE 5432
 ENTRYPOINT ["entrypoint.sh"]
 
 # 应用程序的服务命令，必须使用非守护进程方式运行。如果使用变量，则该变量必须在运行环境中存在（ENV可以获取）
-CMD ["postgres", "--config-file=${PG_CONF_FILE}"]
+CMD ["${APP_EXEC}", "--config-file=${PG_CONF_FILE}"]

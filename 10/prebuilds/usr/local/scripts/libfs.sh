@@ -1,5 +1,5 @@
 #!/bin/bash
-# Ver: 1.0 by Endial Fang (endial@126.com)
+# Ver: 1.1 by Endial Fang (endial@126.com)
 #
 # 文件管理函数库
 

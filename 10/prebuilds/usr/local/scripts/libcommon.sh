@@ -1,5 +1,5 @@
 #!/bin/bash
-# Ver: 1.0 by Endial Fang (endial@126.com)
+# Ver: 1.1 by Endial Fang (endial@126.com)
 #
 
 # shellcheck disable=SC1091
@@ -122,10 +122,10 @@ ensure_config_file_exist() {
 #   布尔值
 _is_run_as_root() {
     if [[ "$(id -u)" = "0" ]]; then
-        LOG_D "Run as root"
+        LOG_D "Check if run as root: Yes"
         true
     else
-        LOG_D "User id: $(id -u)"
+        LOG_D "Check if run as root: No (ID $(id -u))"
         false
     fi
 }

@@ -495,11 +495,7 @@ app_start_server_bg() {
     # -o command line options to pass to postgres or initdb
     local -r pg_ctl_flags=("-W" "-D" "$PG_DATA_DIR" "-l" "$PG_LOG_FILE" "-o" "--config-file=$PG_CONF_FILE --external_pid_file=$PG_PID_FILE --hba_file=$PG_HBA_FILE")
     LOG_I "Starting ${APP_NAME} in background..."
-    local pg_ctl_cmd=()
-    if _is_run_as_root; then
-        pg_ctl_cmd+=("gosu" "$APP_USER")
-    fi
-    pg_ctl_cmd+=(pg_ctl)
+    local pg_ctl_cmd=(pg_ctl)
     if is_boolean_yes "${ENV_DEBUG}"; then
         "${pg_ctl_cmd[@]}" "start" "${pg_ctl_flags[@]}"
     else
@@ -507,11 +503,7 @@ app_start_server_bg() {
     fi
 
     local -r check_args=("-h" "localhost" "-p" "${PG_PORT_NUMBER}" "-U" "postgres")
-    local check_cmd=()
-    if _is_run_as_root; then
-        check_cmd=("gosu" "$APP_USER")
-    fi
-    check_cmd+=(pg_isready)
+    local check_cmd=(pg_isready)
     local counter=$PG_INIT_MAX_TIMEOUT
     LOG_I "Checking ${APP_NAME} ready status..."
     while ! PGPASSWORD=$PG_REPLICATION_PASSWORD "${check_cmd[@]}" "${check_args[@]}" >/dev/null 2>&1; do
@@ -728,11 +720,7 @@ postgresql_master_init_db() {
     #initdb+=("-o" "--config-file=$PG_CONF_FILE --external_pid_file=$PG_PID_FILE --hba_file=$PG_HBA_FILE")
     initdb_args+=("--waldir=$APP_DATA_LOG_DIR")
 
-    local initdb_cmd=()
-    if _is_run_as_root; then
-        initdb_cmd+=("gosu" "$APP_USER")
-    fi
-    initdb_cmd+=(initdb)
+    local initdb_cmd=(initdb)
 
     LOG_I "Initializing PostgreSQL database"
 
@@ -757,11 +745,7 @@ postgresql_master_init_db() {
 postgresql_slave_init_db() {
     LOG_I "Waiting for replication master to accept connections (${PG_INIT_MAX_TIMEOUT} seconds)..."
     local -r check_args=("-U" "$PG_REPLICATION_USER" "-h" "$PG_MASTER_HOST" "-p" "$PG_MASTER_PORT_NUMBER" "-d" "postgres")
-    local check_cmd=()
-    if _is_run_as_root; then
-        check_cmd=("gosu" "$APP_USER")
-    fi
-    check_cmd+=(pg_isready)
+    local check_cmd=(pg_isready)
     local ready_counter=$PG_INIT_MAX_TIMEOUT
 
     while ! PGPASSWORD=$PG_REPLICATION_PASSWORD "${check_cmd[@]}" "${check_args[@]}" >/dev/null 2>&1;do
@@ -776,11 +760,7 @@ postgresql_slave_init_db() {
     LOG_I "Replicating the database from node master..."
     #local -r backup_args=("-D" "$PG_DATA_DIR" -d "hostaddr=$PG_MASTER_HOST port=$PG_MASTER_PORT_NUMBER user=$PG_REPLICATION_USER password=$PG_REPLICATION_PASSWORD" -v -Fp -Xs
     local -r backup_args=("-D" "$PG_DATA_DIR" "-U" "$PG_REPLICATION_USER" "-h" "$PG_MASTER_HOST" "-p" "$PG_MASTER_PORT_NUMBER" "-X" "stream" "-w" "-v" "-P")
-    local backup_cmd=()
-    if _is_run_as_root; then
-        backup_cmd+=("gosu" "$APP_USER")
-    fi
-    backup_cmd+=(pg_basebackup)
+    local backup_cmd=(pg_basebackup)
     local replication_counter=$PG_INIT_MAX_TIMEOUT
 
     while ! PGPASSWORD=$PG_REPLICATION_PASSWORD "${backup_cmd[@]}" "${backup_args[@]}";do
