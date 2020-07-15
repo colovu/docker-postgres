@@ -615,7 +615,7 @@ docker_app_init() {
         else
             postgresql_slave_init_db
         fi
-		
+
         touch ${APP_DATA_DIR}/.data_init_flag
         echo "$(date '+%Y-%m-%d %H:%M:%S') : Init success." >> ${APP_DATA_DIR}/.data_init_flag
     else
@@ -690,6 +690,9 @@ docker_custom_init() {
 
     # 删除第一次运行生成的临时文件
     app_clean_tmp_file
+
+    # 如果设置了用户密码，启用 md5 加密的密码认证 
+    postgresql_restrict_hba_config
 
 	# 绑定所有 IP ，启用远程访问
     app_enable_remote_connections
