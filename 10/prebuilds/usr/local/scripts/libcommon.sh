@@ -104,14 +104,14 @@ ensure_config_file_exist() {
     LOG_D "List to check: $@"
     while [ "$#" -gt 0 ]; do
         f="${1}"
-        LOG_D "Process ${f}"
-        if [ -d "${f}" ]; then
+        LOG_D "Process \"${f}\""
+        if [ -d "${base_path}/${f}" ]; then
             dist="$(echo ${base_path}/${f} | sed -e 's/\/etc/\/srv\/conf/g')"
-            [ ! -d "${dist}" ] && LOG_I "Create directory: ${dist}" && mkdir -p "${dist}"
-            [[ ! -z $(ls -A "${f}") ]] && ensure_config_file_exist "${base_path}/${f}" $(ls -A "${base_path}/${f}")
+            [[ ! -d "${dist}" ]] && LOG_I "Create directory: ${dist}" && mkdir -p "${dist}"
+            [[ ! -z $(ls -A "${base_path}/${f}") ]] && ensure_config_file_exist "${base_path}/${f}" $(ls -A "${base_path}/${f}")
         else
             dist="$(echo ${base_path}/${f} | sed -e 's/\/etc/\/srv\/conf/g')"
-            [ ! -e "${dist}" ] && LOG_I "Copy: ${base_path}/${f} ===> ${dist}" && cp "${base_path}/${f}" "${dist}" && rm -rf "/srv/conf/${APP_NAME}/.app_init_flag"
+            [[ ! -e "${dist}" ]] && LOG_I "Copy: ${base_path}/${f} ===> ${dist}" && cp "${base_path}/${f}" "${dist}" && rm -rf "/srv/conf/${APP_NAME}/.app_init_flag"
         fi
         shift
     done

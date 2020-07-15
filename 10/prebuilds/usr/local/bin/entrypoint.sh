@@ -30,7 +30,7 @@ APP_DIRS="${APP_DIRS} ${PG_DATA_DIR}"
 # 打印镜像欢迎信息
 docker_print_welcome
 
-postgresql_enable_nss_wrapper
+#postgresql_enable_nss_wrapper
 
 # 检测数据卷，创建默认的关联目录，并拷贝所必须的默认配置文件及初始化文件
 # 全局变量：
@@ -48,7 +48,7 @@ docker_ensure_dir_and_configs() {
 
 	# 检测指定文件是否在配置文件存储目录存在，如果不存在则拷贝（新挂载数据卷、手动删除都会导致不存在）
 	LOG_D "Check config files..."
-	if [[ ! -z "$(ls -A "$dir")" ]]; then
+	if [[ ! -z "$(ls -A "${APP_DEF_DIR}")" ]]; then
 		ensure_config_file_exist "${APP_DEF_DIR}" $(ls -A "${APP_DEF_DIR}")
 	fi
 }
@@ -75,7 +75,8 @@ _main() {
 			# 以root用户启动时，修改相应目录的所属用户信息为 APP_USER ，确保切换用户时，权限正常
 			for dir in ${APP_DIRS}; do
     			LOG_D "Change ownership and permissions of $dir"
-    			configure_permissions_ownership "$dir" -f 755 -d 755 -u "${APP_USER}" -g "${APP_GROUP}"
+    			chmod 755 ${dir}
+    			configure_permissions_ownership "$dir" -u "${APP_USER}" -g "${APP_GROUP}"
 			done
 
 			# 解决 PostgreSQL 目录权限过于开放，无法初始化问题：FATAL:  data directory "/srv/data/postgresql" has group or world access

@@ -55,7 +55,7 @@ RUN set -eux; \
 # 为应用创建对应的组、用户、相关目录
 	APP_DIRS="${APP_DEF_DIR:-} ${APP_CONF_DIR:-} ${APP_DATA_DIR:-} ${APP_CACHE_DIR:-} ${APP_RUN_DIR:-} ${APP_LOG_DIR:-} ${APP_CERT_DIR:-} ${APP_WWW_DIR:-} ${APP_DATA_LOG_DIR:-} ${APP_BASE_DIR:-${APP_DATA_DIR}}"; \
 	mkdir -p ${APP_DIRS}; \
-	groupadd -r -g 999 ${APP_GROUP}; \
+	groupadd -r -g 998 ${APP_GROUP}; \
 	useradd -r -g ${APP_GROUP} -u 999 -s /bin/bash -d ${APP_DATA_DIR} ${APP_USER}; \
 	\
 # 应用软件包及依赖项。相关软件包在镜像创建完成时，不会被清理
@@ -151,4 +151,4 @@ EXPOSE 5432
 ENTRYPOINT ["entrypoint.sh"]
 
 # 应用程序的服务命令，必须使用非守护进程方式运行。如果使用变量，则该变量必须在运行环境中存在（ENV可以获取）
-CMD ["${APP_EXEC}", "--config-file=${PG_CONF_FILE}"]
+CMD ["postgres", "--config-file=${PG_CONF_FILE}"]

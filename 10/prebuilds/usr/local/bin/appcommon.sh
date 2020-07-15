@@ -19,6 +19,7 @@
 #   PG_*
 postgresql_enable_nss_wrapper() {
     if ! getent passwd "$(id -u)" &> /dev/null && [ -e /usr/lib/libnss_wrapper.so ]; then
+        LOG_D "Configuring libnss_wrapper..."
         export LD_PRELOAD='/usr/lib/libnss_wrapper.so'
         export NSS_WRAPPER_PASSWD="$(mktemp)"
         export NSS_WRAPPER_GROUP="$(mktemp)"
@@ -716,6 +717,8 @@ postgresql_master_init_db() {
         exit 1
     fi
 
+    postgresql_enable_nss_wrapper
+
     local envExtraFlags=()
     local initdb_args=()
     if [[ -n "${PG_INITDB_ARGS}" ]]; then
@@ -742,6 +745,8 @@ postgresql_master_init_db() {
     else
         "${initdb_cmd[@]}" -E UTF8 -D "$PG_DATA_DIR" -U "postgres" "${initdb_args[@]}" >/dev/null 2>&1
     fi
+
+    postgresql_disable_nss_wrapper
 }
 
 # 初始化 Slave 节点数据库
