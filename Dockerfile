@@ -1,7 +1,11 @@
 # Ver: 1.0 by Endial Fang (endial@126.com)
 #
-# 指定原始系统镜像，常用镜像为 colovu/ubuntu:18.04、colovu/debian:10-buster、colovu/alpine:3.11、colovu/openjdk:8u252-jre
-FROM colovu/ubuntu:18.04
+# 指定原始系统镜像，常用镜像为 colovu/ubuntu:18.04、colovu/debian:10、colovu/alpine:3.12、colovu/openjdk:8u252-jre
+FROM colovu/debian:10
+
+# ARG参数使用"--build-arg"指定，如 "--build-arg apt_source=tencent"
+# sources.list 可使用版本：default / tencent / ustc / aliyun / huawei
+ARG apt_source=default
 
 # 外部指定应用版本信息，如 "--build-arg app_ver=6.0.0"
 ARG app_ver=10
@@ -25,8 +29,7 @@ ENV	APP_BASE_DIR=/usr/lib/${APP_NAME}/${APP_VERSION} \
 	APP_CACHE_DIR=/var/cache/${APP_NAME} \
 	APP_RUN_DIR=/var/run/${APP_NAME} \
 	APP_LOG_DIR=/var/log/${APP_NAME} \
-	APP_CERT_DIR=/srv/cert/${APP_NAME} \
-	APP_WWW_DIR=/srv/www
+	APP_CERT_DIR=/srv/cert/${APP_NAME}
 
 # 设置应用需要的特定环境变量
 ENV \
@@ -49,6 +52,9 @@ RUN set -eux; \
 # 设置程序使用静默安装，而非交互模式；类似tzdata等程序需要使用静默安装
 	export DEBIAN_FRONTEND=noninteractive; \
 	\
+# 更改源为当次编译指定的源
+	cp /etc/apt/sources.list.${apt_source} /etc/apt/sources.list; \
+	\
 # 设置容器入口脚本的可执行权限
 	chmod +x /usr/local/bin/entrypoint.sh; \
 	\
@@ -65,8 +71,6 @@ RUN set -eux; \
 		pgdg-keyring \
 		libnss-wrapper \
 		xz-utils \
-		locales \
-		tzdata \
 	"; \
 	\
 	\
@@ -103,15 +107,6 @@ RUN set -eux; \
 	\
 	\
 	\
-# 为中国区使用重新配置 TimeZone 信息。需要安装 tzdata 软件包
-	ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
-	dpkg-reconfigure -f noninteractive tzdata; \
-	\
-# 安装 UTF-8 编码。需要安装 locales 软件包
-	localedef -c -i en_US -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8; \
-	echo 'en_GB.UTF-8 UTF-8\nen_US.UTF-8 UTF-8' >> /etc/locale.gen && locale-gen; \
-	update-locale LANG=en_US.UTF-8 LANGUAGE=en_US.UTF-8 LC_ALL=en_US.UTF-8 LC_MESSAGES=POSIX && dpkg-reconfigure locales; \
-	\
 # 检测是否存在对应版本的 overrides 脚本文件；如果存在，执行
 	{ [ ! -e "/usr/local/overrides/overrides-${APP_VERSION}.sh" ] || /bin/bash "/usr/local/overrides/overrides-${APP_VERSION}.sh"; }; \
 	\
@@ -137,10 +132,6 @@ RUN set -eux; \
 	\
 # 验证安装的软件是否可以正常运行，常规情况下放置在命令行的最后
 	gosu ${APP_USER} ${APP_EXEC} --version ;
-
-ENV LANG=en_US.UTF-8 \
-	LANGUAGE=en_US.UTF-8 \
-	LC_ALL=en_US.UTF-8
 
 VOLUME ["/srv/conf", "/srv/data", "/var/log", "/var/run"]
 

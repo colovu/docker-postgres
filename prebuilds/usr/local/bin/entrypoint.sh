@@ -71,7 +71,6 @@ _main() {
 		docker_ensure_dir_and_configs
 
 		# 以root用户运行时，会使用gosu重新以"APP_USER"用户运行当前脚本
-		LOG_D "Check if run as root"
 		if _is_run_as_root; then
 			LOG_D "Change permissions when run as root"
 

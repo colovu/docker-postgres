@@ -1,26 +1,77 @@
 # 简介
 
-基于的Ubuntu系统的 PostgreSQL Docker镜像。
+针对 PostgreSQL 应用的 Docker 镜像，用于提供 PostgreSQL 服务。
+
+详细信息可参照官网：https://www.postgresql.org/
 
 **版本信息：**
 
-
+- 11
+- 10、10.13.0、latest
 
 **镜像信息：**
 
 * 镜像地址：colovu/postgres:latest
   * 依赖镜像：colovu/ubuntu:latest
 
+**使用 Docker Compose 运行应用**
 
-
-## 数据卷
+可以使用 Git 仓库中的默认`docker-compose.yml`，快速启动应用进行测试：
 
 ```shell
- /srv/data：数据存储目录
- /srv/conf：配置文件及初始化文件存储目录
- /var/run：运行时文件存储目录
- /var/log：日志文件存储目录
+$ curl -sSL https://raw.githubusercontent.com/colovu/docker-postgres/master/docker-compose.yml > docker-compose.yml
+
+$ docker-compose up -d
 ```
+
+
+
+## 默认对外声明
+
+### 端口
+
+- 5432：PostgreSQL 业务客户端访问端口
+
+### 数据卷
+
+镜像默认提供以下数据卷定义：
+
+```shell
+/var/log			# 日志输出，应用日志输出，非数据日志输出
+/srv/conf			# 配置文件
+/srv/data			# 数据文件
+/srv/datalog	# 数据操作日志文件
+/var/run			# 运行时文件
+```
+
+如果需要持久化存储相应数据，需要在宿主机建立本地目录，并在使用镜像初始化容器时进行数据卷映射。
+
+举例：
+
+- 使用宿主机`/host/dir/to/conf`存储配置文件
+- 使用宿主机`/host/dir/to/data`存储数据文件
+- 使用宿主机`/host/dir/to/log`存储日志文件
+
+创建以上相应的宿主机目录后，容器启动命令中对应的数据卷映射参数类似如下：
+
+```shell
+-v /host/dir/to/conf:/srv/conf -v /host/dir/to/data:/srv/data -v /host/dir/to/log:/var/log
+```
+
+使用 Docker Compose 时配置文件类似如下：
+
+```yaml
+services:
+  postgresql:
+  ...
+    volumes:
+      - /host/dir/to/conf:/srv/conf
+      - /host/dir/to/data:/srv/data
+      - /host/dir/to/log:/var/log
+  ...
+```
+
+> 注意：应用需要使用的子目录会自动创建。
 
 
 
@@ -329,6 +380,7 @@ initdb: could not look up effective user ID 1000: user does not exist
 
 - [官方Docker](https://hub.docker.com/_/postgres?tab=description)
 - [官方介绍](http://www.postgresql.org/docs/9.5/interactive/app-initdb.html)
+- [官方中文手册](http://www.postgres.cn/v2/document)
 
 ----
 
