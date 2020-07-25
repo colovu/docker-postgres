@@ -79,6 +79,7 @@ RUN set -eux; \
 	fetchDeps=" \
 		dirmngr \
 		gnupg \
+		libicu-dev \
 	"; \
 	savedAptMark="$(apt-mark showmanual) ${appDeps}"; \
 	apt-get update; \
@@ -100,8 +101,8 @@ RUN set -eux; \
 	\
 	\
 # 增加软件包特有源，并使用系统包管理方式安装软件
-	echo "deb http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main ${APP_VERSION}" >> /etc/apt/sources.list; \
-	echo "deb-src http://apt.postgresql.org/pub/repos/apt/ bionic-pgdg main ${APP_VERSION}" >> /etc/apt/sources.list; \
+	echo "deb http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main ${APP_VERSION}" >> /etc/apt/sources.list; \
+	echo "deb-src http://apt.postgresql.org/pub/repos/apt/ buster-pgdg main ${APP_VERSION}" >> /etc/apt/sources.list; \
 	apt-get update; \
 	apt-get install -y --no-install-recommends ${appDeps}; \
 	\
