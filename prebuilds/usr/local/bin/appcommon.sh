@@ -14,28 +14,6 @@
 
 # 函数列表
 
-# 配置 libnss_wrapper 以使得 PostgreSQL 命令可以以任意用户身份执行
-# 全局变量:
-#   PG_*
-postgresql_enable_nss_wrapper() {
-    if ! getent passwd "$(id -u)" &> /dev/null && [ -e /usr/lib/libnss_wrapper.so ]; then
-        LOG_D "Configuring libnss_wrapper..."
-        export LD_PRELOAD='/usr/lib/libnss_wrapper.so'
-        export NSS_WRAPPER_PASSWD="$(mktemp)"
-        export NSS_WRAPPER_GROUP="$(mktemp)"
-        echo "postgres:x:$(id -u):$(id -g):PostgreSQL:${PG_DATA_DIR}:/bin/false" > "$NSS_WRAPPER_PASSWD"
-        echo "postgres:x:$(id -g):" > "$NSS_WRAPPER_GROUP"
-    fi
-}
-
-postgresql_disable_nss_wrapper() {
-    # unset/cleanup "nss_wrapper" bits
-    if [ "${LD_PRELOAD:-}" = '/usr/lib/libnss_wrapper.so' ]; then
-        rm -f "$NSS_WRAPPER_PASSWD" "$NSS_WRAPPER_GROUP"
-        unset LD_PRELOAD NSS_WRAPPER_PASSWD NSS_WRAPPER_GROUP
-    fi
-}
-
 # 加载应用使用的环境变量初始值，该函数在相关脚本中以 eval 方式调用
 # 全局变量:
 #   ENV_* : 容器使用的全局变量
@@ -130,6 +108,28 @@ EOF
         cat <<"EOF"
 export PG_REPLICATION_PASSWORD="$(< "${PG_REPLICATION_PASSWORD_FILE}")"
 EOF
+    fi
+}
+
+# 配置 libnss_wrapper 以使得 PostgreSQL 命令可以以任意用户身份执行
+# 全局变量:
+#   PG_*
+postgresql_enable_nss_wrapper() {
+    if ! getent passwd "$(id -u)" &> /dev/null && [ -e /usr/lib/libnss_wrapper.so ]; then
+        LOG_D "Configuring libnss_wrapper..."
+        export LD_PRELOAD='/usr/lib/libnss_wrapper.so'
+        export NSS_WRAPPER_PASSWD="$(mktemp)"
+        export NSS_WRAPPER_GROUP="$(mktemp)"
+        echo "postgres:x:$(id -u):$(id -g):PostgreSQL:${PG_DATA_DIR}:/bin/false" > "$NSS_WRAPPER_PASSWD"
+        echo "postgres:x:$(id -g):" > "$NSS_WRAPPER_GROUP"
+    fi
+}
+
+postgresql_disable_nss_wrapper() {
+    # unset/cleanup "nss_wrapper" bits
+    if [ "${LD_PRELOAD:-}" = '/usr/lib/libnss_wrapper.so' ]; then
+        rm -f "$NSS_WRAPPER_PASSWD" "$NSS_WRAPPER_GROUP"
+        unset LD_PRELOAD NSS_WRAPPER_PASSWD NSS_WRAPPER_GROUP
     fi
 }
 
@@ -517,10 +517,12 @@ app_start_server_bg() {
     LOG_D "${APP_NAME} is ready for service..."
 }
 
-# 停止 PostgreSQL 后台服务
+# 停止应用后台服务
 # 全局变量:
 #   PG_PID_FILE
 app_stop_server() {
+    is_app_server_running || return
+
     LOG_I "Stopping ${APP_NAME}..."
     stop_service_using_pid "$PG_PID_FILE"
 }
@@ -555,6 +557,7 @@ app_clean_tmp_file() {
 #   APP_*
 #   PG_*
 app_clean_from_restart() {
+    LOG_D "Delete temp files when restart container"
     local -r -a files=(
         "$PG_DATA_DIR"/postmaster.pid
         "$PG_DATA_DIR"/standby.signal
