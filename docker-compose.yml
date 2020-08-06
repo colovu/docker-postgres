@@ -4,14 +4,10 @@ version: '3.6'
 # 更多配置参数请参考镜像 README.md 文档中说明
 services:
   postgres:
-    # 10
-    image: 'colovu/postgres:10'
+    image: 'colovu/postgres:latest'
     ports:
       - '5432:5432'
-    container_name: postgres
     restart: always
-    networks:
-      - back-tier
     volumes:
       - $PWD/conf:/srv/conf
       - $PWD/log:/var/log
@@ -21,16 +17,3 @@ services:
       - PG_USERNAME=postgres
       - PG_PASSWORD=colovu
       - PG_DATABASE=postgres
-      - ENV_DEBUG=yes
-
-volumes:
-  zookeeper_data:
-    driver: local
-  kafka_data:
-    driver: local
-
-networks:
-  back-tier:
-    driver: bridge
-  front-tier:
-    driver: bridge

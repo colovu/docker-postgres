@@ -17,13 +17,13 @@ set -o pipefail
 #. /usr/local/scripts/libcommon.sh		# 通用函数库
 . /usr/local/bin/appcommon.sh			# 应用专用函数库
 
-LOG_D "Run entrypoint.sh for container init..."
+LOG_D "Process entrypoint.sh..."
 
 # 初始化环境变量。 docker_app_env()函数在文件 appcommon.sh 中定义
 eval "$(docker_app_env)"
 
 # 定义容器中使用的默认目录(未定义时设置默认值为空"")
-APP_DIRS="${APP_DEF_DIR:-} ${APP_HOME_DIR:-} ${APP_CONF_DIR:-} ${APP_DATA_DIR:-} ${APP_CACHE_DIR:-} ${APP_RUN_DIR:-} ${APP_LOG_DIR:-} ${APP_CERT_DIR:-} ${APP_WWW_DIR:-} ${APP_DATA_LOG_DIR:-}"
+APP_DIRS="${APP_CONF_DIR:-} ${APP_DATA_DIR:-} ${APP_LOG_DIR:-} ${APP_CERT_DIR:-} ${APP_DATA_LOG_DIR:-}"
 
 APP_DIRS="${APP_DIRS} ${PG_DATA_DIR}"
 
@@ -32,7 +32,7 @@ docker_print_welcome
 
 #postgresql_enable_nss_wrapper
 
-# 检测数据卷，创建默认的关联目录，并拷贝所必须的默认配置文件及初始化文件
+# 检测数据卷中相关目录，创建默认的关联目录，并拷贝所必须的默认配置文件及初始化文件
 # 全局变量：
 # 	APP_*
 docker_ensure_dir_and_configs() {
@@ -40,9 +40,9 @@ docker_ensure_dir_and_configs() {
 
 	local user_id; user_id="$(id -u)"
 
-	LOG_D "Directories: ${APP_DIRS}"
+	LOG_D "Check directories..."
 	for dir in ${APP_DIRS}; do
-    	LOG_D "Check directory $dir"
+    	LOG_D "  Check $dir"
     	ensure_dir_exists "$dir"
 	done
 
@@ -76,9 +76,9 @@ _main() {
 
 			# 以root用户启动时，修改相应目录的所属用户信息为 APP_USER ，确保切换用户时，权限正常
 			for dir in ${APP_DIRS}; do
-    			LOG_D "Change ownership and permissions of $dir"
     			chmod 755 ${dir}
-    			configure_permissions_ownership "$dir" -u "${APP_USER}" -g "${APP_GROUP}"
+    			configure_permissions_ownership "$dir" -u "${APP_USER}" -g "${APP_USER}"
+				:
 			done
 
 			# 解决 PostgreSQL 目录权限过于开放，无法初始化问题：FATAL:  data directory "/srv/data/postgresql" has group or world access
@@ -96,7 +96,7 @@ _main() {
 			exec gosu "${APP_USER}" "$0" "$@"
 		fi
 		
-		# 执行预初始化操作
+		# 执行应用预初始化操作
 		docker_custom_preinit
 
 		# 执行应用初始化操作
