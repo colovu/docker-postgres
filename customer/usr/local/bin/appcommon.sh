@@ -4,13 +4,13 @@
 # 应用通用业务处理函数
 
 # 加载依赖脚本
-#. /usr/local/scripts/liblog.sh          # 日志输出函数库
 . /usr/local/scripts/libcommon.sh       # 通用函数库
 . /usr/local/scripts/libfile.sh
 . /usr/local/scripts/libfs.sh
 . /usr/local/scripts/libos.sh
 . /usr/local/scripts/libservice.sh
 . /usr/local/scripts/libvalidations.sh
+. /usr/local/scripts/libnet.sh
 
 # 函数列表
 
@@ -40,8 +40,6 @@ export PG_PID_FILE="${APP_RUN_DIR}/postgresql.pid"
 export PG_LOG_FILE="${APP_LOG_DIR}/postgresql.log"
 
 # Users
-export APP_USER="${PG_DAEMON_USER:-${APP_USER}}"
-export APP_GROUP="${PG_DAEMON_GROUP:-${APP_GROUP}}"
 
 # Cluster configuration
 export PG_CLUSTER_APP_NAME=${PG_CLUSTER_APP_NAME:-cvreceiver}
