@@ -27,3 +27,10 @@ sed -i -E "s/^#log_rotation_size .*/log_rotation_size = 0/g" ${POSTGRESQL_CONF}
 sed -i -E "s/^log_timezone .*/log_timezone = \'Asia\/Shanghai\'/g" ${POSTGRESQL_CONF}
 
 sed -i -E "s/^#include_dir .*/include_dir = \'conf\.d\'/g" ${POSTGRESQL_CONF}
+
+# 修改 unix_socket_directories 与 PID 文件同目录，解决修改 PID 输出目录后 psql 不指定`-h`时 Unix Socket 无法找到问题：
+#   psql: could not connect to server: No such file or directory
+#   	Is the server running locally and accepting
+# 		connections on Unix domain socket "/var/run/postgresql/.s.PGSQL.5432"?
+sed -i -E "s/^unix_socket_directories .*/unix_socket_directories = \'\/var\/run\/postgresql\'/g" ${POSTGRESQL_CONF}
+

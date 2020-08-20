@@ -2,7 +2,7 @@
 
 针对 [PostgreSQL](https://www.postgresql.org) 应用的 Docker 镜像，用于提供 PostgreSQL 服务。
 
-详细信息可参照：[官方说明](https://www.postgresql.org/docs/)
+详细信息可参照：[PostgreSQL10手册](http://www.postgres.cn/docs/10/)及[PostgreSQL11手册](http://www.postgres.cn/docs/11/)
 
 <img src="img/postgresql-logo.png" alt="postgresql-logo" style="zoom: 33%;" />
 
