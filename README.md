@@ -8,8 +8,8 @@
 
 **版本信息：**
 
-- 11、11.8、latest
-- 10、10.13
+- 11、latest
+- 10
 
 **镜像信息：**
 
@@ -22,7 +22,7 @@
 Docker 快速启动命令：
 
 ```shell
-$ docker run -d --name postgres -e ALLOW_EMPTY_PASSWORD=yes colovu/postgres:latest
+$ docker run -d -e ALLOW_ANONYMOUS_LOGIN=yes colovu/postgres
 ```
 
 Docker-Compose 快速启动命令：
@@ -35,7 +35,7 @@ $ docker-compose up -d
 
 
 
-****
+---
 
 
 
@@ -47,13 +47,13 @@ $ docker-compose up -d
 
 ### 数据卷
 
-镜像默认提供以下数据卷定义：
+镜像默认提供以下数据卷定义，默认数据分别存储在自动生成的应用名对应`postgres`子目录中：
 
 ```shell
-/var/log			# 日志输出，应用日志输出，非数据日志输出
-/srv/conf			# 配置文件
-/srv/data			# 数据文件
-/srv/datalog	# 数据操作日志文件
+/var/log                # 日志输出，应用日志输出，非数据日志输出
+/srv/conf               # 配置文件
+/srv/data               # 数据文件
+/srv/datalog            # 数据操作日志文件
 ```
 
 如果需要持久化存储相应数据，需要在宿主机建立本地目录，并在使用镜像初始化容器时进行数据卷映射。
