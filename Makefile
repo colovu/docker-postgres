@@ -2,7 +2,7 @@
 #
 # 当前 Docker 镜像的编译脚本
 
-app_name := colovu/postgres
+app_name :=colovu/postgres
 
 # 生成镜像TAG，类似：
 # 	<镜像名>:<分支名>-<Git ID>		# Git 仓库且无文件修改直接编译 	
