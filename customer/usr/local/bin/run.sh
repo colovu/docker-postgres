@@ -8,18 +8,20 @@
 set -eu
 set -o pipefail
 
-. /usr/local/bin/appcommon.sh			# 应用专用函数库
+. /usr/local/bin/comm-${APP_NAME}.sh			# 应用专用函数库
 
-eval "$(app_env)"
+. /usr/local/bin/comm-env.sh 			# 设置环境变量
+
 LOG_I "** Processing run.sh **"
 
-flags=("${APP_CONF_FILE:-}")
+flags=("-D" "/srv/data/${APP_NAME}/data")
 [[ -z "${APP_EXTRA_FLAGS:-}" ]] || flags=("${flags[@]}" "${APP_EXTRA_FLAGS[@]}")
-START_COMMAND=("${APP_EXEC}" "${flags[@]}")
+START_COMMAND=("${APP_EXEC}")
 
 LOG_I "** Starting ${APP_NAME} **"
 if is_root; then
-    exec gosu "${APP_USER}" tini -s -- "${START_COMMAND[@]}"
+    exec gosu "${APP_USER}" tini -s -- "${START_COMMAND[@]}" "${flags[@]}"
 else
-    exec tini -s -- "${START_COMMAND[@]}"
+    exec tini -s -- "${START_COMMAND[@]}" "${flags[@]}"
 fi
+

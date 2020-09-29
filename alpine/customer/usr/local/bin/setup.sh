@@ -8,34 +8,38 @@
 set -eu
 set -o pipefail
 
-. /usr/local/bin/appcommon.sh			# 应用专用函数库
+. /usr/local/bin/comm-${APP_NAME}.sh			# 应用专用函数库
 
-eval "$(app_env)"
+. /usr/local/bin/comm-env.sh 			# 设置环境变量
+
 LOG_I "** Processing setup.sh **"
 
 APP_DIRS="${APP_CONF_DIR:-} ${APP_DATA_DIR:-} ${APP_LOG_DIR:-} ${APP_CERT_DIR:-} ${APP_DATA_LOG_DIR:-}"
-APP_DIRS="${APP_DIRS} ${PGDATA}"
+APP_DIRS="${APP_DIRS} ${PG_DATA_DIR:-} ${PG_INITDB_WAL_DIR:-}"
 
+LOG_I "Ensure directory exists: ${APP_DIRS}"
 for dir in ${APP_DIRS}; do
 	ensure_dir_exists ${dir}
 done
 
-app_verify_minimum_env
+${APP_NAME}_verify_minimum_env
 
 # 检测指定文件是否在配置文件存储目录存在，如果不存在则拷贝（新挂载数据卷、手动删除都会导致不存在）
-LOG_I "Check config files in: ${APP_CONF_DIR}"
-if [[ ! -z "$(ls -A "${APP_DEF_DIR}")" ]]; then
+# PG 将使用默认模板生成配置文件，并放置在PGDATA目录
+#LOG_I "Check config files in: ${APP_CONF_DIR}"
+#if [[ ! -z "$(ls -A "${APP_DEF_DIR}")" ]]; then
 #	ensure_config_file_exist "${APP_DEF_DIR}" $(ls -A "${APP_DEF_DIR}")
-	:
-fi
+#	:
+#fi
 
+LOG_I "Ensure directory ownership: ${APP_USER}"
 for dir in ${APP_DIRS}; do
 	configure_permissions_ownership "$dir" -u "${APP_USER}" -g "${APP_USER}"
 done
 
 # 解决 PostgreSQL 目录权限过于开放，无法初始化问题：FATAL:  data directory "/srv/data/postgresql" has group or world access
-LOG_D "Lack of permissions on data directory: ${PGDATA}"
-chmod 0700 ${PGDATA}
+LOG_D "Lack of permissions on data directory: ${PG_DATA_DIR}"
+chmod 0700 ${PG_DATA_DIR}
 
 # 解决使用gosu后，nginx: [emerg] open() "/dev/stdout" failed (13: Permission denied)
 LOG_D "Change permissions of stdout/stderr to 0622"
