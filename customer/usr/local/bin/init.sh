@@ -8,18 +8,25 @@
 set -eu
 set -o pipefail
 
-. /usr/local/bin/appcommon.sh			# 应用专用函数库
+. /usr/local/bin/comm-${APP_NAME}.sh			# 应用专用函数库
 
-eval "$(app_env)"
+. /usr/local/bin/comm-env.sh 			# 设置环境变量
+
 LOG_I "** Processing init.sh **"
 
+trap "postgresql_stop_server" EXIT
+
 # 执行应用预初始化操作
-app_custom_preinit
+${APP_NAME}_custom_preinit
 
 # 执行应用初始化操作
-app_default_init
+${APP_NAME}_default_init
 
 # 执行用户自定义初始化脚本
-app_custom_init
+${APP_NAME}_custom_init
+
+# 绑定所有 IP 及 指定端口 ，启用远程访问
+postgresql_enable_remote_connections
+postgresql_conf_set "port" "${PG_PORT_NUMBER}"
 
 LOG_I "** Processing init.sh finished! **"

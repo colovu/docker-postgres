@@ -6,14 +6,11 @@ services:
   postgres:
     image: 'colovu/postgres:10'
     ports:
-      - '5432:5432'
-    volumes:
-      - 'app_conf:/srv/conf'
-      - 'app_data:/srv/data'
-      - 'app_datalog:/srv/datalog'
+      - 5432:5432
     environment:
       # ALLOW_ANONYMOUS_LOGIN is recommended only for development.
       - ALLOW_ANONYMOUS_LOGIN=yes
+      - ENV_DEBUG=yes
 
 # 定义本地数据卷，由系统管理，需要手动删除
 volumes:
@@ -21,5 +18,5 @@ volumes:
     driver: local
   app_data:
     driver: local
-  app_datalog:
+  var_log:
     driver: local

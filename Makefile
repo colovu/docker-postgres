@@ -15,7 +15,7 @@ current_tag:=$(shell if [ ! `git status >/dev/null 2>&1` ]; then git rev-parse -
 build-arg:=--build-arg apt_source=tencent
 
 # 设置本地下载服务器路径，加速调试时的本地编译速度
-local_ip:=`ifconfig -a|grep inet|grep -v 127.0.0.1|grep -v inet6|awk '{print $$2}'|tr -d "addr:"`
+local_ip:=`echo "en0 eth0" |xargs -n1 ip addr show 2>/dev/null|grep inet|grep -v 127.0.0.1|grep -v inet6|tr "/" " "|awk '{print $$2}'`
 build-arg+=--build-arg local_url=http://$(local_ip)/dist-files
 #--build-arg local_url=http://192.168.1.187/dist-files/postgresql
 
