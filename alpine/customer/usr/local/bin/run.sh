@@ -14,9 +14,9 @@ set -o pipefail
 
 LOG_I "** Processing run.sh **"
 
-flags=("-D" "/srv/data/${APP_NAME}/data")
+flags=("--config-file=${PG_CONF_FILE}" "--hba_file=${PG_HBA_FILE}")
 [[ -z "${APP_EXTRA_FLAGS:-}" ]] || flags=("${flags[@]}" "${APP_EXTRA_FLAGS[@]}")
-START_COMMAND=("${APP_EXEC}")
+START_COMMAND=("postgres")
 
 LOG_I "** Starting ${APP_NAME} **"
 if is_root; then
