@@ -71,9 +71,7 @@ RUN set -eux; \
 #		--enable-nls \
 # these make our image abnormally large (at least 100MB larger), which seems uncouth for an "Alpine" (ie, "small") variant :)
 #		--enable-debug \
-#		--with-krb5 \
 #		--with-gssapi \
-#		--with-ldap \
 #		--with-tcl \
 #		--with-perl \
 #		--with-python \
@@ -111,7 +109,7 @@ ENV	APP_HOME_DIR=/usr/local/${APP_NAME} \
 	APP_DEF_DIR=/etc/${APP_NAME}
 
 ENV PATH="${APP_HOME_DIR}/bin:${PATH}" \
-	LD_LIBRARY_PATH=${APP_HOME_DIR}/lib
+	LD_LIBRARY_PATH="${APP_HOME_DIR}/lib"
 
 LABEL \
 	"Version"="v${APP_VERSION}" \
@@ -145,6 +143,9 @@ VOLUME ["/srv/conf", "/srv/data", "/srv/datalog", "/srv/cert", "/var/log"]
 
 # 默认使用gosu切换为新建用户启动，必须保证端口在1024之上
 EXPOSE 5432
+
+# 应用健康状态检查
+HEALTHCHECK CMD PGPASSWORD="${PG_POSTGRES_PASSWORD}" psql -h 127.0.0.1 -d postgres -U postgres -At -c "select version();" || exit 1
 
 # 容器初始化命令，默认存放在：/usr/local/bin/entry.sh
 ENTRYPOINT ["entry.sh"]
