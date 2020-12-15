@@ -2,18 +2,18 @@
 
 针对 [PostgreSQL](https://www.postgresql.org) 应用的 Docker 镜像，用于提供 PostgreSQL 服务。
 
-详细信息可参照：[PostgreSQL10手册](http://www.postgres.cn/docs/10/)及[PostgreSQL11手册](http://www.postgres.cn/docs/11/)
+详细信息可参照：[PostgreSQL10手册](http://www.postgres.cn/docs/10/)及[PostgreSQL12手册](http://www.postgres.cn/docs/12/)
 
 <img src="img/postgresql-logo.png" alt="postgresql-logo" style="zoom: 33%;" />
 
 **版本信息：**
 
-- 11、latest
+- 12、latest
 - 10
 
 **镜像信息：**
 
-* 镜像地址：colovu/postgres:latest
+* 镜像地址：registry.cn-shenzhen.aliyuncs.com/colovu/postgres:12
 
 
 
@@ -22,7 +22,7 @@
 Docker 快速启动命令：
 
 ```shell
-$ docker run -d -e ALLOW_ANONYMOUS_LOGIN=yes colovu/postgres
+$ docker run -d -e ALLOW_ANONYMOUS_LOGIN=yes registry.cn-shenzhen.aliyuncs.com/colovu/postgres:12
 ```
 
 Docker-Compose 快速启动命令：
@@ -94,7 +94,7 @@ services:
 #### 通过默认方式启动
 
 ```shell
-$ docker run --name some-postgres -e POSTGRES_PASSWORD=mysecretpassword -d colovu/postgres:latest
+$ docker run --name some-postgres -e POSTGRES_PASSWORD=mysecretpassword -d registry.cn-shenzhen.aliyuncs.com/colovu/postgres:12
 ```
 
 - 由容器执行默认的`entrypoint.sh`脚本，并生成默认的用户及数据文件
@@ -106,7 +106,7 @@ $ docker run --name some-postgres -e POSTGRES_PASSWORD=mysecretpassword -d colov
 #### 通过`psql`命令方式启动
 
 ```shell
-$ docker run -it --rm --network some-network colovu/postgres:latest psql -h some-postgres -U postgres
+$ docker run -it --rm --network some-network registry.cn-shenzhen.aliyuncs.com/colovu/postgres:12 psql -h some-postgres -U postgres
 psql (10.12.0)
 Type "help" for help.
 
@@ -131,7 +131,7 @@ version: '3.1'
 services:
 
   db:
-    image: colovu/postgres:latest
+    image: registry.cn-shenzhen.aliyuncs.com/colovu/postgres:12
     restart: always
     environment:
       POSTGRES_PASSWORD: example
