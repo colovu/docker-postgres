@@ -1,5 +1,5 @@
 #!/bin/bash
-# Ver: 1.0 by Endial Fang (endial@126.com)
+# Ver: 1.1 by Endial Fang (endial@126.com)
 # 
 # 应用通用业务处理函数
 
@@ -8,6 +8,7 @@
 
 . /usr/local/scripts/libfile.sh
 . /usr/local/scripts/libfs.sh
+. /usr/local/scripts/liblog.sh
 . /usr/local/scripts/libos.sh
 . /usr/local/scripts/libservice.sh
 . /usr/local/scripts/libvalidations.sh
@@ -713,6 +714,11 @@ postgresql_custom_init() {
     		LOG_I "Custom init for ${APP_NAME} already done before, skipping initialization."
     	fi
     fi
+	
+	# 绑定所有 IP 及 指定端口 ，启用远程访问
+	postgresql_enable_remote_connections
+	postgresql_conf_set "port" "${PG_PORT_NUMBER}"
+
 }
 
 # 初始化 Master 节点数据库

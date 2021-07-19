@@ -112,5 +112,8 @@ export PGCONNECT_TIMEOUT="${PGCONNECT_TIMEOUT:-10}"
 # 内部变量
 export PG_FIRST_BOOT="yes"
 
+export APP_DAEMON_USER="${APP_NAME}"
+export APP_DAEMON_GROUP="${APP_NAME}"
+
 # 个性化变量
 
