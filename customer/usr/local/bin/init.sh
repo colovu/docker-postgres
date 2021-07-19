@@ -1,5 +1,5 @@
 #!/bin/bash
-# Ver: 1.0 by Endial Fang (endial@126.com)
+# Ver: 1.2 by Endial Fang (endial@126.com)
 # 
 # 应用初始化脚本
 
@@ -8,13 +8,14 @@
 set -eu
 set -o pipefail
 
-. /usr/local/bin/comm-${APP_NAME}.sh			# 应用专用函数库
-
-. /usr/local/bin/comm-env.sh 			# 设置环境变量
+. /usr/local/bin/common.sh				# 应用专用函数库
+. /usr/local/bin/environment.sh 		# 设置环境变量
 
 LOG_I "** Processing init.sh **"
 
-trap "postgresql_stop_server" EXIT
+trap "${APP_NAME}_stop_server" EXIT
+
+${APP_NAME}_verify_minimum_env
 
 # 执行应用预初始化操作
 ${APP_NAME}_custom_preinit
@@ -24,9 +25,5 @@ ${APP_NAME}_default_init
 
 # 执行用户自定义初始化脚本
 ${APP_NAME}_custom_init
-
-# 绑定所有 IP 及 指定端口 ，启用远程访问
-postgresql_enable_remote_connections
-postgresql_conf_set "port" "${PG_PORT_NUMBER}"
 
 LOG_I "** Processing init.sh finished! **"
